@@ -1,7 +1,7 @@
-# 開発方針 (open-ea)
+# 開発方針 (maid-cafe-se)
 
 共通の開発環境ルール・運用方針は[`open-raid-z/CLAUDE.md`](https://github.com/aon-co-jp/open-raid-z)を正本とし、
-エコシステム索引は[`runo`](https://github.com/aon-co-jp/runo)を参照。作業場所は`F:\open-ea`。
+エコシステム索引は[`runo`](https://github.com/aon-co-jp/runo)を参照。作業場所は`F:\maid-cafe-se`。
 
 - Androidアプリを最優先。設計は`README.md`、再開点は`PORTING.md`。
 - 音源はCC0/パブリックドメインのみ。出典とライセンスを必ず記録する(著作権フリー要件)。

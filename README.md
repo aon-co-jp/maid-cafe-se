@@ -1,7 +1,7 @@
-# open-ea
+# maid-cafe-se
 
-**OPEN(ソース) Executive Assistant (EA)** — EAは「役員や重役を補佐する役員秘書」の略称。
-Androidスマホを、あなた専属の音声秘書にするオープンソースアプリ。
+**maid-cafe-se** — SEは secretary(秘書)の略。「maid-cafe による秘書サービス」。
+Androidスマホを、メイドカフェ風(または低い男性の声)の専属音声秘書にするオープンソースアプリ。
 
 > **状況(2026-09-30): 設計ドキュメント段階。実装は未着手。** Androidアプリ開発を最優先とする。
 

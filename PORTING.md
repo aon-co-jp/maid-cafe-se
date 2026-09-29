@@ -1,4 +1,4 @@
-# PORTING / 開発メモ (open-ea)
+# PORTING / 開発メモ (maid-cafe-se)
 
 ## 現状 (2026-09-30)
 - リポジトリ新設、README(要件・方針)のみ。コード無し。
