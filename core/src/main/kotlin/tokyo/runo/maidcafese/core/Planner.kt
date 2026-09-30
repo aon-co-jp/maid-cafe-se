@@ -4,9 +4,9 @@ import java.time.LocalDateTime
 
 /** 読み上げ文の生成。TTSが読み間違えやすい記号(♪等)は入れない。 */
 object SpeechText {
-    /** [base]の後ろに選択されたセリフを(カタログ順で)続ける。何も無ければnull。 */
+    /** [base]の後ろに選択されたセリフを、**選んだ順**([ids]の反復順)で続ける。何も無ければnull。 */
     fun withPhrases(base: String?, ids: Set<String>): String? {
-        val spoken = MaidPhrases.all.filter { it.id in ids }.map { it.spoken }
+        val spoken = ids.mapNotNull { MaidPhrases.byId(it) }.map { it.spoken }
         val parts = listOfNotNull(base) + spoken
         return if (parts.isEmpty()) null else parts.joinToString(" ")
     }
@@ -16,7 +16,7 @@ object SpeechText {
 
     /** [withPhrases]と同じ内容を、セリフごとの間・抑揚つきの区切りで返す。 */
     fun segments(base: String?, ids: Set<String>): List<Segment> {
-        val phrases = MaidPhrases.all.filter { it.id in ids }
+        val phrases = ids.mapNotNull { MaidPhrases.byId(it) }
         val out = ArrayList<Segment>()
         if (base != null) out += Segment(base, gapAfterMs = if (phrases.isEmpty()) 0 else BASE_GAP_MS)
         phrases.forEachIndexed { i, p ->

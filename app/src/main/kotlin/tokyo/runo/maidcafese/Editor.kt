@@ -20,6 +20,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,8 +103,9 @@ fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (Alarm
     var text by remember { mutableStateOf(initial?.text ?: "") }
     var voice by remember { mutableStateOf(initial?.voice ?: VoiceStyle.MAID) }
     var pre by remember { mutableStateOf(initial?.schedule?.preNoticeMinutes != null) }
-    var phrases by remember { mutableStateOf(initial?.phrases ?: emptySet()) }
-    var prePhrases by remember { mutableStateOf(initial?.prePhrases ?: emptySet()) }
+    // Setの等価判定は順序を無視するので、並べ替えでも再描画されるよう常に更新扱いにする
+    var phrases by remember { mutableStateOf(initial?.phrases ?: emptySet(), neverEqualPolicy()) }
+    var prePhrases by remember { mutableStateOf(initial?.prePhrases ?: emptySet(), neverEqualPolicy()) }
     var harmony by remember { mutableStateOf(initial?.harmony ?: false) }
 
     val intervalNum = interval.toIntOrNull()

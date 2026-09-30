@@ -18,7 +18,7 @@ data class AlarmEntry(
     val text: String = "",
     val voice: VoiceStyle = VoiceStyle.MAID,
     val enabled: Boolean = true,
-    /** 指定時刻に喋るメイドのセリフ([MaidPhrases]のid、複数可)。 */
+    /** 指定時刻に喋るメイドのセリフ([MaidPhrases]のid、複数可)。**選んだ順**に喋る(Setの反復順を保つ)。 */
     val phrases: Set<String> = emptySet(),
     /** 予告時に喋るメイドのセリフ。 */
     val prePhrases: Set<String> = emptySet(),
@@ -82,7 +82,7 @@ object MaidPhrases {
     )
 
     val all = listOf(
-        // 目覚まし用。カタログ順=連結順なので、起こすセリフは先頭(ほかのセリフと組み合わせたとき最初に喋る)。
+        // 目覚まし用。画面の並びはこの順(喋る順は、ユーザーが選んだ順)。
         Phrase(
             "okite", "ご主人さま～、お～き～て～。今日も頑張って～", "ご主人さまー、おーきーてー。今日も、がんばってー",
             pitch = 1.04, rate = 0.8f, gapMs = 350,
@@ -100,5 +100,50 @@ object MaidPhrases {
         Phrase("perfect", "パーフェクト！", "パーフェクト！", pitch = 1.05, rate = 1.0f, gapMs = 300),
     )
 
+    fun byId(id: String): Phrase? = all.firstOrNull { it.id == id }
+
+    // ---- 喋る順の番号(画面で編集できる) ----
+    // セリフごとに番号を持ち、喋る順は番号の小さい順。同じ番号は決してかぶらない(assignが自動で振り直す)。
+    // 番号は欠番があってよい(外したセリフの番号は空く)。
+
+    /** 保存された順序(選択順)から、1,2,3...の番号を振る。 */
+    fun ranks(ids: Set<String>): Map<String, Int> {
+        val m = LinkedHashMap<String, Int>()
+        ids.forEachIndexed { i, id -> m[id] = i + 1 }
+        return m
+    }
+
+    /** 番号の小さい順に並べたid(これが読み上げ順)。 */
+    fun ordered(numbers: Map<String, Int>): Set<String> =
+        numbers.entries.sortedBy { it.value }.mapTo(LinkedHashSet()) { it.key }
+
+    /** セリフを選んだとき: 今の最大番号の次(末尾)に加える。何も無ければ1番。 */
+    fun add(numbers: Map<String, Int>, id: String): Map<String, Int> =
+        if (id in numbers) numbers else LinkedHashMap(numbers).also { it[id] = (numbers.values.maxOrNull() ?: 0) + 1 }
+
+    /** セリフの選択を外したとき。ほかの番号はそのまま(欠番になる)。 */
+    fun remove(numbers: Map<String, Int>, id: String): Map<String, Int> =
+        if (id !in numbers) numbers else LinkedHashMap(numbers).also { it.remove(id) }
+
+    /**
+     * [id]の番号を[n]にする。すでに別のセリフが[n]を使っていたら、後から入れた[id]が[n]を取り、
+     * 元の持ち主は**空いている最小の番号**(1から探す。1が使用中なら2以降)へ自動で振り直す。
+     * 選ばれていないid・1未満の番号は何もしない。結果に重複する番号は残らない。
+     */
+    fun assign(numbers: Map<String, Int>, id: String, n: Int): Map<String, Int> {
+        if (id !in numbers || n < 1) return numbers
+        val holder = numbers.entries.firstOrNull { it.key != id && it.value == n }?.key
+        val result = LinkedHashMap(numbers)
+        result[id] = n
+        if (holder != null) {
+            val used = result.filterKeys { it != holder }.values.toSet()
+            var free = 1
+            while (free in used) free++
+            result[holder] = free
+        }
+        return result
+    }
+
+    /** 未知のidを捨てる。順序(選択順)は保つ。 */
     fun known(ids: Set<String>): Set<String> = ids.filterTo(LinkedHashSet()) { id -> all.any { it.id == id } }
 }

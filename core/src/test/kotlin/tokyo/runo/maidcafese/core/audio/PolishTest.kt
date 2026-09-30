@@ -86,8 +86,8 @@ class PolishTest {
     }
 
     @Test fun segmentsCarryPerPhraseProsodyAndGaps() {
-        val segs = SpeechText.segments("ご主人様、お時間です", setOf("fight", "okaeri"))
-        // 本文 → おかえり → ファイト(カタログ順)
+        val segs = SpeechText.segments("ご主人様、お時間です", linkedSetOf("okaeri", "fight"))
+        // 本文 → おかえり → ファイト(選んだ順)
         assertEquals(3, segs.size)
         assertEquals("ご主人様、お時間です", segs[0].text)
         assertEquals(300, segs[0].gapAfterMs)
