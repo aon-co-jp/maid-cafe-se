@@ -53,7 +53,8 @@ object Codec {
         "ph" to e.phrases.joinToString(","),
         "pph" to e.prePhrases.joinToString(","),
         "harm" to if (e.harmony) "1" else "0",
-    ).joinToString("&") { (k, v) -> "$k=${enc(v)}" }
+    ).plus(if (e.speechSound) listOf("ss" to "1") else emptyList()) // オンのときだけ書く(旧版と同じ行を保つ)
+        .joinToString("&") { (k, v) -> "$k=${enc(v)}" }
 
     fun decode(line: String): AlarmEntry {
         val m = line.split("&").associate {
@@ -79,6 +80,7 @@ object Codec {
             phrases = decodeIds(m["ph"]),
             prePhrases = decodeIds(m["pph"]),
             harmony = m["harm"] == "1",
+            speechSound = m["ss"] == "1",
         )
     }
 

@@ -115,6 +115,7 @@ fun EditorDialog(
     var phrases by remember { mutableStateOf(initial?.phrases ?: emptySet(), neverEqualPolicy()) }
     var prePhrases by remember { mutableStateOf(initial?.prePhrases ?: emptySet(), neverEqualPolicy()) }
     var harmony by remember { mutableStateOf(initial?.harmony ?: false) }
+    var speechSound by remember { mutableStateOf(initial?.speechSound ?: false) }
 
     val intervalNum = interval.toIntOrNull()
     val recurrence: Recurrence? = when (recKind) {
@@ -153,10 +154,20 @@ fun EditorDialog(
                     else -> {}
                 }
                 Text("鳴らし方")
-                Choice(AlarmKind.entries, kind, { if (it == AlarmKind.SOUND) "音(アラーム)" else "文章の読み上げ" }) { kind = it }
-                if (kind == AlarmKind.SOUND) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(kind == AlarmKind.SPEECH, { kind = if (it) AlarmKind.SPEECH else AlarmKind.SOUND })
+                    Text("声でアラーム(目覚まし)— 音は鳴らさず、声だけで知らせる")
+                }
+                if (kind == AlarmKind.SPEECH) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(speechSound, { speechSound = it }); Text("音も一緒に鳴らす(声の下に流す)")
+                    }
+                }
+                // 声だけのときは、音の選択は要らない
+                if (kind == AlarmKind.SOUND || speechSound) {
                     Choice(SoundCatalog.all, SoundCatalog.all.first { it.id == soundId }, { it.displayName }) { soundId = it.id }
-                } else {
+                }
+                if (kind == AlarmKind.SPEECH) {
                     OutlinedTextField(text, { text = it }, label = { Text("読み上げる文章") }, modifier = Modifier.fillMaxWidth())
                 }
                 Text("声")
@@ -175,7 +186,7 @@ fun EditorDialog(
                     onTest(
                         AlarmEntry(
                             "test", label.ifBlank { "アラーム" }, Schedule(Recurrence.Daily, LocalTime.of(0, 0)),
-                            kind, soundId, text, voice, phrases = phrases, harmony = harmony,
+                            kind, soundId, text, voice, phrases = phrases, harmony = harmony, speechSound = speechSound,
                         ),
                     )
                 }) { Text("テスト再生") }
@@ -194,6 +205,7 @@ fun EditorDialog(
                         kind = kind, soundId = soundId, text = text, voice = voice,
                         enabled = initial?.enabled ?: true,
                         phrases = phrases, prePhrases = if (pre) prePhrases else emptySet(), harmony = harmony,
+                        speechSound = kind == AlarmKind.SPEECH && speechSound,
                     ),
                 )
             }) { Text("保存") }

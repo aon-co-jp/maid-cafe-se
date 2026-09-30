@@ -20,6 +20,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import tokyo.runo.maidcafese.core.Codec
+import tokyo.runo.maidcafese.core.CalendarSettings
 import tokyo.runo.maidcafese.core.Occurrence
 import tokyo.runo.maidcafese.core.Planner
 import tokyo.runo.maidcafese.core.VoiceStyle
@@ -35,8 +37,7 @@ class AlarmService : Service() {
         const val ACTION_TEST = "tokyo.runo.maidcafese.TEST"
         const val EXTRA_SOUND = "sound"
         const val EXTRA_SPEECH = "speech"
-        const val EXTRA_VOICE = "voice"
-        const val EXTRA_HARMONY = "harmony"
+        const val EXTRA_ENTRY = "entry"
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -61,15 +62,10 @@ class AlarmService : Service() {
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "maidcafese:alarm").apply { acquire(120_000L) }
 
         if (intent?.action == ACTION_TEST) {
-            val voice = runCatching { VoiceStyle.valueOf(intent.getStringExtra(EXTRA_VOICE) ?: "") }.getOrDefault(VoiceStyle.MAID)
-            play(
-                listOf(
-                    Occurrence(
-                        LocalDateTime.now(), "test", "テスト", intent.getStringExtra(EXTRA_SOUND),
-                        intent.getStringExtra(EXTRA_SPEECH), voice, intent.getBooleanExtra(EXTRA_HARMONY, false),
-                    ),
-                ),
-            )
+            // 保存前のアラームを、本番と同じPlanner(Rust)で発火に変換して鳴らす
+            val entry = runCatching { Codec.decode(intent.getStringExtra(EXTRA_ENTRY) ?: "") }.getOrNull()
+            val occ = entry?.let { Planner.next(listOf(it.copy(enabled = true)), emptyList(), CalendarSettings(), LocalDateTime.now()).firstOrNull() }
+            if (occ == null) finish() else play(listOf(occ))
             return START_NOT_STICKY
         }
         val timeMs = intent?.getLongExtra(Scheduler.EXTRA_TIME, 0L) ?: 0L

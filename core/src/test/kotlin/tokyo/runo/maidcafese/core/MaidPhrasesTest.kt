@@ -65,8 +65,9 @@ class MaidPhrasesTest {
 
     @Test fun wakeUpPhraseAloneIsSlow() {
         val seg = first(entry(text = "", phrases = setOf("okite"))).segments
-        assertEquals(1, seg.size)
-        assertEquals(0.8f, seg[0].rate) // ゆっくり間延びさせて読む
+        assertTrue(seg.size >= 2, "メイドの声は文節ごとに抑揚を付けるため、割れる")
+        assertTrue(seg.all { it.rate <= 0.8f }) // どの文節もゆっくり間延びさせて読む
+        assertTrue(seg.map { it.pitch }.toSet().size > 1, "音程が文節ごとに変わる")
     }
 
     @Test fun phrasesOnlyWhenTextBlank() {

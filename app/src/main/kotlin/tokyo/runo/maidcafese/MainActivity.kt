@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import tokyo.runo.maidcafese.core.AlarmEntry
+import tokyo.runo.maidcafese.core.Codec
 import tokyo.runo.maidcafese.core.AlarmKind
 import tokyo.runo.maidcafese.core.CalendarSettings
 import tokyo.runo.maidcafese.core.SpeechText
@@ -58,19 +59,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** エディタの「テスト再生」: 保存前の設定をそのままサービスに渡して鳴らす。 */
+/** エディタの「テスト再生」: 保存前の設定をそのままサービスに渡して鳴らす(本番と同じ、Rust製コアのPlannerを通る)。 */
 fun startTestPlayback(ctx: Context, entry: AlarmEntry) {
-    val i = Intent(ctx, AlarmService::class.java).setAction(AlarmService.ACTION_TEST)
-        .putExtra(AlarmService.EXTRA_VOICE, entry.voice.name)
-        .putExtra(AlarmService.EXTRA_HARMONY, entry.harmony)
-    if (entry.kind == AlarmKind.SOUND) i.putExtra(AlarmService.EXTRA_SOUND, entry.soundId)
-    val speech = SpeechText.alarmSpeech(
-        entry.kind, entry.text.ifBlank { if (entry.phrases.isEmpty()) "テストです" else "" }, entry.label, entry.voice, entry.phrases,
+    val e = entry.copy(text = entry.text.ifBlank { if (entry.phrases.isEmpty()) "テストです" else "" })
+    ctx.startForegroundService(
+        Intent(ctx, AlarmService::class.java).setAction(AlarmService.ACTION_TEST).putExtra(AlarmService.EXTRA_ENTRY, Codec.encode(e)),
     )
-    if (speech != null) i.putExtra(AlarmService.EXTRA_SPEECH, speech)
-    ctx.startForegroundService(i)
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App() {

@@ -140,7 +140,9 @@ impl Player {
 
     /// 読み上げの音声を作る(SAPIで区切りごとに合成→声を加工→間を挟んで連結)。失敗したら`Err`(原因つき)。
     pub fn render(&self, o: &Occurrence, voice_name: Option<&str>) -> Result<(Pcm, SapiVoice), String> {
-        let segs: Vec<Segment> = if o.segments.is_empty() { vec![Segment::plain(o.speech.as_deref().unwrap_or(""))] } else { o.segments.clone() };
+        let raw: Vec<Segment> = if o.segments.is_empty() { vec![Segment::plain(o.speech.as_deref().unwrap_or(""))] } else { o.segments.clone() };
+        // メイドちゃんは文節ごとに音程・話速を変えて抑揚を付ける(低い男性の声には使わない)
+        let segs: Vec<Segment> = if o.voice == VoiceStyle::Maid { maid_cafe_core::SpeechText::intonate(raw) } else { raw };
         let base_rate = if o.voice == VoiceStyle::DeepMale { 0.92 } else { 1.0 };
         let items: Vec<(i32, String)> = segs.iter().map(|s| (sapi::rate_step(base_rate * s.rate as f64), s.text.clone())).collect();
         let synthesized = sapi::synthesize(&items, voice_name)?;

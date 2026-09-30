@@ -24,6 +24,8 @@ data class AlarmEntry(
     val prePhrases: Set<String> = emptySet(),
     /** メイドちゃん2人でハモる(同じ文を2つの声で同時に)。 */
     val harmony: Boolean = false,
+    /** 読み上げのとき、音も一緒に鳴らす(声の下に流す)。既定はオフ=声だけ。[kind]が[AlarmKind.SOUND]なら無関係。 */
+    val speechSound: Boolean = false,
 )
 
 /** Googleカレンダー(端末同期分)の予定1件。 */

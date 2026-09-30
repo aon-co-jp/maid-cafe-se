@@ -103,4 +103,20 @@ class PlannerCodecTest {
         val line = Codec.encode(entry()).replace("sound=chime", "sound=nonexistent")
         assertEquals("chime", Codec.decode(line).soundId)
     }
+
+    @Test fun speechAlarmIsVoiceOnlyUnlessSoundIsOn() {
+        val voiceOnly = entry(kind = AlarmKind.SPEECH)
+        val r1 = Planner.next(listOf(voiceOnly), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
+        assertNull(r1[0].soundId)
+        assertTrue(r1[0].speech != null)
+        val both = voiceOnly.copy(speechSound = true)
+        val r2 = Planner.next(listOf(both), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
+        assertEquals("chime", r2[0].soundId)
+        assertTrue(r2[0].speech != null)
+        // 保存形式: オンのときだけ ss=1(オフの行は従来と同じ)、往復で保たれる
+        assertTrue(Codec.encode(both).contains("&ss=1"))
+        assertTrue(!Codec.encode(voiceOnly).contains("ss="))
+        assertEquals(both, Codec.decode(Codec.encode(both)))
+        assertEquals(voiceOnly, Codec.decode(Codec.encode(voiceOnly)))
+    }
 }

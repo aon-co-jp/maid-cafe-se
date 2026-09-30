@@ -46,6 +46,9 @@ pub struct AlarmDto {
     pub pre_phrases: Vec<String>,
     #[serde(default)]
     pub harmony: bool,
+    /// 読み上げのとき、音も一緒に鳴らす(既定は声だけ)
+    #[serde(default)]
+    pub speech_sound: bool,
     /// 何分前に予告するか(予告しないなら`null`)
     #[serde(default)]
     pub pre_notice_minutes: Option<u32>,
@@ -113,6 +116,7 @@ impl AlarmDto {
             phrases: e.phrases.clone(),
             pre_phrases: e.pre_phrases.clone(),
             harmony: e.harmony,
+            speech_sound: e.speech_sound,
             pre_notice_minutes: e.schedule.pre_notice_minutes,
         }
     }
@@ -151,6 +155,7 @@ impl AlarmDto {
         e.phrases = MaidPhrases::known(&self.phrases);
         e.pre_phrases = MaidPhrases::known(&self.pre_phrases);
         e.harmony = self.harmony;
+        e.speech_sound = self.speech_sound;
         // 保存形式で往復できることを保証する
         codec::decode(&codec::encode(&e)).map_err(|err| format!("保存できない値が含まれています: {err}"))?;
         // 読み上げなのに、文章もセリフも名前も無いものは作れない
@@ -179,6 +184,7 @@ mod tests {
             phrases: vec!["okite".into(), "okaeri".into()],
             pre_phrases: vec!["fight".into()],
             harmony: true,
+            speech_sound: true,
             pre_notice_minutes: Some(30),
         }
     }

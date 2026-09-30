@@ -58,7 +58,7 @@ fn post(s: &Server, path: &str, body: &Value, headers: &[(&str, &str)], with_mar
 
 fn alarm(id: &str) -> Value {
     json!({"id": id, "label": "起床", "time": "07:30", "recurrence": {"kind": "weekdays", "skip_holidays": true},
-           "kind": "SPEECH", "sound": "chime", "text": "薬を飲む", "voice": "MAID", "enabled": true,
+           "kind": "SPEECH", "sound": "chime", "text": "薬を飲む", "voice": "MAID", "enabled": true, "speech_sound": false,
            "phrases": ["okite", "fight"], "pre_phrases": ["fight"], "harmony": true, "pre_notice_minutes": 30})
 }
 

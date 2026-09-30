@@ -24,16 +24,16 @@ fn plan_next_returns_the_pre_notice_first_and_encodes_everything() {
     assert!(m["speech"].contains("30分"));
     // 区切りの形: `<文章>,<音程>,<話速>,<間>` が`;`区切り。最後の間は0
     let segs: Vec<&str> = m["seg"].split(';').collect();
-    assert_eq!(2, segs.len(), "基本メッセージ+セリフ1つ(fight)");
-    assert!(segs[1].ends_with(",0"), "{:?}", segs);
-    assert!(url_decode(segs[1].split(',').next().unwrap()).unwrap().contains("ファイト"));
+    assert!(segs.len() > 2, "メイドは抑揚のため文節に割れる: {segs:?}");
+    assert!(segs.last().unwrap().ends_with(",0"), "{:?}", segs);
+    assert!(url_decode(segs.last().unwrap().split(',').next().unwrap()).unwrap().contains("ファイト"));
 
     // 予告の後は本番
     let after_pre = plan_next(ENTRY, "", "", secs(2026, 9, 30, 6, 30));
     let m = fields(after_pre.lines().next().unwrap());
     assert_eq!(secs(2026, 9, 30, 7, 0).to_string(), m["t"]);
     assert_eq!("alarm:a1", m["key"]);
-    assert!(url_decode(m["seg"].split(';').next().unwrap().split(',').next().unwrap()).unwrap().contains("お時間ですよ"));
+    assert!(m["seg"].split(';').any(|s| url_decode(s.split(',').next().unwrap()).unwrap().contains("お時間ですよ")));
 }
 
 #[test]

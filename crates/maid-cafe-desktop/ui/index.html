@@ -48,10 +48,9 @@
       <label>何週ごと <input id="f-interval" type="number" min="1" max="52" value="2"></label>
       <label>基準日 <input id="f-anchor" type="date"></label>
     </div>
+    <label class="check"><input id="f-kind" type="checkbox"> 声でアラーム(目覚まし)— チェックすると音は鳴らさず、声だけで知らせます</label>
+    <label class="check" id="l-ss"><input id="f-ss" type="checkbox"> 音も一緒に鳴らす(声の下に流します)</label>
     <div class="row">
-      <label>鳴らし方
-        <select id="f-kind"><option value="SOUND">音を鳴らす</option><option value="SPEECH">読み上げる</option></select>
-      </label>
       <label id="l-sound">音 <select id="f-sound"></select></label>
       <label>声
         <select id="f-voice"><option value="MAID">メイドカフェ風</option><option value="DEEP_MALE">太くて低い男性</option></select>

@@ -127,6 +127,11 @@ pub fn encode(e: &AlarmEntry) -> String {
         ("pph", e.pre_phrases.join(",")),
         ("harm", if e.harmony { "1" } else { "0" }.into()),
     ];
+    // 旧版と同じ行になるよう、オンのときだけ書く(旧版はこの項目を知らないが、読み飛ばすだけで壊れない)
+    let mut fields = fields;
+    if e.speech_sound {
+        fields.push(("ss", "1".into()));
+    }
     fields.iter().map(|(k, v)| format!("{k}={}", url_encode(v))).collect::<Vec<_>>().join("&")
 }
 
@@ -169,6 +174,7 @@ pub fn decode(line: &str) -> Result<AlarmEntry, String> {
         phrases: decode_ids(m.get("ph").map(|s| s.as_str())),
         pre_phrases: decode_ids(m.get("pph").map(|s| s.as_str())),
         harmony: m.get("harm").map(|s| s.as_str()) == Some("1"),
+        speech_sound: m.get("ss").map(|s| s.as_str()) == Some("1"),
     })
 }
 

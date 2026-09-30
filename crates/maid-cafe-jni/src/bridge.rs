@@ -89,7 +89,12 @@ fn encode_occurrence(o: &Occurrence) -> String {
 pub fn plan_next(entries: &str, events: &str, settings: &str, after: i64) -> String {
     let Some(after) = from_secs(after) else { return String::new() };
     let list = Planner::next(&decode_all(entries), &decode_events(events), &decode_settings(settings), after, &JapaneseHolidays);
-    list.iter().map(encode_occurrence).collect::<Vec<_>>().join("\n")
+    list.into_iter().map(|mut o| {
+        if o.voice == VoiceStyle::Maid {
+            o.segments = SpeechText::intonate(std::mem::take(&mut o.segments));
+        }
+        encode_occurrence(&o)
+    }).collect::<Vec<_>>().join("\n")
 }
 
 /// 指定時刻の読み上げ文(全体)。読み上げない設定なら`None`。

@@ -169,3 +169,21 @@ fn url_encoding_matches_java() {
     let _ = date(2026, 1, 1).year();
     let _ = s(&[]);
 }
+
+#[test]
+fn speech_alarm_is_voice_only_unless_sound_is_turned_on() {
+    let mut e = plain(AlarmKind::Speech);
+    let after = dt(2026, 9, 30, 0, 0);
+    let voice_only = Planner::next(std::slice::from_ref(&e), &[], &CalendarSettings::default(), after, &NoHolidays).remove(0);
+    assert!(voice_only.sound_id.is_none() && voice_only.speech.is_some());
+    // 「音も一緒に鳴らす」をオンにすると、声と音が同時
+    e.speech_sound = true;
+    let both = Planner::next(std::slice::from_ref(&e), &[], &CalendarSettings::default(), after, &NoHolidays).remove(0);
+    assert_eq!(Some(e.sound_id.clone()), both.sound_id);
+    assert!(both.speech.is_some());
+    // 保存形式: オンのときだけ`ss=1`が付く(オフの行は従来と同じ)。往復しても保たれる
+    assert!(codec::encode(&e).contains("&ss=1"));
+    assert!(!codec::encode(&plain(AlarmKind::Speech)).contains("ss="));
+    assert!(codec::decode(&codec::encode(&e)).unwrap().speech_sound);
+    assert!(!codec::decode(&codec::encode(&plain(AlarmKind::Speech))).unwrap().speech_sound);
+}

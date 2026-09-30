@@ -115,7 +115,7 @@ impl AppState {
             time: Local::now().naive_local(),
             key: "test".into(),
             title: "テスト".into(),
-            sound_id: if e.kind == AlarmKind::Sound { Some(e.sound_id.clone()) } else { None },
+            sound_id: if e.kind == AlarmKind::Sound || e.speech_sound { Some(e.sound_id.clone()) } else { None },
             speech: SpeechText::alarm_speech(e.kind, &text, &e.label, e.voice, &e.phrases),
             voice: e.voice,
             harmony: e.harmony,

@@ -114,7 +114,7 @@ impl Planner {
                     time: t,
                     key: format!("alarm:{}", e.id),
                     title: e.label.clone(),
-                    sound_id: if e.kind == AlarmKind::Sound { Some(e.sound_id.clone()) } else { None },
+                    sound_id: if e.kind == AlarmKind::Sound || e.speech_sound { Some(e.sound_id.clone()) } else { None },
                     speech: SpeechText::alarm_speech(e.kind, &e.text, &e.label, e.voice, &e.phrases),
                     voice: e.voice,
                     harmony: e.harmony,
@@ -176,4 +176,82 @@ impl Planner {
 /// Kotlin版の`LocalDateTime.toString()`に合わせた表記(キーの一意性用)。
 fn iso(t: NaiveDateTime) -> String {
     t.format("%Y-%m-%dT%H:%M").to_string()
+}
+
+impl SpeechText {
+    /// メイドちゃんの声に**抑揚**を付ける。端末のTTSは一本調子に読むので、区切り(セリフ・本文)を読点・句点・感嘆符で
+    /// 文節に割り、文節ごとに音程と話速を変えて合成し直す(短い間を挟む)。
+    /// 音程は文節ごとに少しずつ上下させ、「！」「？」で終わる文節は語尾を上げてゆっくり、「。」で終わる文節は少し下げる。
+    /// 低い男性の声には使わない(呼び出し側で声質を見る)。短い区切り(8文字未満)はそのまま。
+    pub fn intonate(segments: Vec<Segment>) -> Vec<Segment> {
+        const BOUNCE: [f64; 4] = [1.00, 1.05, 0.98, 1.06];
+        let mut out = Vec::new();
+        for s in segments {
+            let clauses = split_clauses(&s.text);
+            if s.text.chars().count() < 8 || clauses.len() < 2 {
+                out.push(s);
+                continue;
+            }
+            let last = clauses.len() - 1;
+            for (i, c) in clauses.into_iter().enumerate() {
+                let mut pitch = s.pitch * BOUNCE[i % BOUNCE.len()];
+                let mut rate = s.rate;
+                match c.chars().last() {
+                    Some('！') | Some('!') | Some('？') | Some('?') => {
+                        pitch *= 1.06;
+                        rate *= 0.95;
+                    }
+                    Some('。') => pitch *= 0.97,
+                    _ => {}
+                }
+                let gap = if i == last {
+                    s.gap_after_ms
+                } else if c.ends_with('、') {
+                    90
+                } else {
+                    140
+                };
+                out.push(Segment {
+                    text: c,
+                    pitch,
+                    rate,
+                    gap_after_ms: gap,
+                });
+            }
+        }
+        out
+    }
+}
+
+/// 読点・句点・感嘆符・疑問符の後ろで割る(区切り記号は前の文節に残す)。3文字未満の文節は次の文節にくっつける。
+fn split_clauses(text: &str) -> Vec<String> {
+    let mut raw: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for ch in text.chars() {
+        cur.push(ch);
+        if matches!(ch, '、' | '。' | '！' | '？' | '!' | '?') {
+            raw.push(std::mem::take(&mut cur));
+        }
+    }
+    if !cur.trim().is_empty() {
+        raw.push(cur);
+    }
+    let mut out: Vec<String> = Vec::new();
+    let mut carry = String::new();
+    for r in raw {
+        carry.push_str(&r);
+        if carry.chars().filter(|c| !c.is_whitespace()).count() >= 3 {
+            out.push(std::mem::take(&mut carry));
+        }
+    }
+    if !carry.is_empty() {
+        match out.last_mut() {
+            Some(l) => l.push_str(&carry),
+            None => out.push(carry),
+        }
+    }
+    out.into_iter()
+        .map(|c| c.trim().to_string())
+        .filter(|c| !c.is_empty())
+        .collect()
 }

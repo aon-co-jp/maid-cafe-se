@@ -51,7 +51,7 @@ function render() {
   ul.replaceChildren();
   $('empty').hidden = S.alarms.length > 0;
   for (const a of S.alarms) {
-    const sub = [recText(a.recurrence), a.kind === 'SPEECH' ? '読み上げ' : '音', a.voice === 'DEEP_MALE' ? '低い男性' : 'メイド風',
+    const sub = [recText(a.recurrence), a.kind === 'SPEECH' ? (a.speech_sound ? '声+音' : '声のみ') : '音', a.voice === 'DEEP_MALE' ? '低い男性' : 'メイド風',
       a.pre_notice_minutes ? `${a.pre_notice_minutes}分前に予告` : '', a.harmony ? 'ハモり' : ''].filter(Boolean).join(' ・ ');
     const toggle = el('input', { type: 'checkbox', 'aria-label': '有効' });
     toggle.checked = a.enabled;
@@ -96,8 +96,10 @@ function showRecFields() {
   $('rec-every').hidden = v !== 'every';
 }
 function showKindFields() {
-  $('l-sound').hidden = $('f-kind').value !== 'SOUND';
-  $('l-text').hidden = $('f-kind').value !== 'SPEECH';
+  const speech = $('f-kind').checked;
+  $('l-ss').hidden = !speech;
+  $('l-sound').hidden = speech && !$('f-ss').checked; // 声だけなら、音の選択は要らない
+  $('l-text').hidden = !speech;
 }
 
 function recurrenceFromForm() {
@@ -153,7 +155,8 @@ function openEditor(a) {
   const d = a || { label: '', time: '07:00', recurrence: { kind: 'daily' }, kind: 'SOUND', sound: 'chime', text: '', voice: 'MAID', phrases: [], pre_phrases: [], harmony: false, pre_notice_minutes: null };
   $('f-label').value = d.label;
   $('f-time').value = d.time;
-  $('f-kind').value = d.kind;
+  $('f-kind').checked = d.kind === 'SPEECH';
+  $('f-ss').checked = !!d.speech_sound;
   $('f-sound').value = d.sound || 'chime';
   $('f-text').value = d.text;
   $('f-voice').value = d.voice;
@@ -177,7 +180,8 @@ function alarmFromForm() {
     label: $('f-label').value,
     time: $('f-time').value,
     recurrence: recurrenceFromForm(),
-    kind: $('f-kind').value,
+    kind: $('f-kind').checked ? 'SPEECH' : 'SOUND',
+    speech_sound: $('f-kind').checked && $('f-ss').checked,
     sound: $('f-sound').value,
     text: $('f-text').value,
     voice: $('f-voice').value,
@@ -205,6 +209,7 @@ function wire() {
   $('stop').onclick = () => act(() => api('/api/stop', {}));
   $('f-rec').onchange = showRecFields;
   $('f-kind').onchange = showKindFields;
+  $('f-ss').onchange = showKindFields;
   $('f-pre').onchange = syncPre;
   $('cancel').onclick = () => $('editor').close();
   $('form').addEventListener('submit', async (ev) => {

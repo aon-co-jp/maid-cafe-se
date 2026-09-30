@@ -288,3 +288,47 @@ fn occurrence_segments_join_to_speech() {
 fn sound_only_occurrence_has_no_segments() {
     assert!(first(&entry("", &[], &[], false, None, AlarmKind::Sound, VoiceStyle::Maid), t0()).segments.is_empty());
 }
+
+#[test]
+fn intonation_splits_into_clauses_with_varying_pitch_and_keeps_the_text() {
+    let segs = SpeechText::segments(
+        Some("ご主人様、お時間ですよ。薬。忘れずにお願いしますね"),
+        &s(&["fight"]),
+    );
+    let joined_before: String = segs
+        .iter()
+        .map(|x| x.text.clone())
+        .collect::<Vec<_>>()
+        .join("");
+    let out = SpeechText::intonate(segs.clone());
+    assert!(out.len() > segs.len(), "文節に割れる");
+    // 文章は変わらない(空白を除いて連結すると同じ)
+    let joined_after: String = out
+        .iter()
+        .map(|x| x.text.clone())
+        .collect::<Vec<_>>()
+        .join("");
+    assert_eq!(
+        joined_before.replace(' ', ""),
+        joined_after.replace(' ', "")
+    );
+    // 音程は一定ではなく、極端でもない(元の±15%以内)
+    let pitches: Vec<f64> = out.iter().map(|x| x.pitch).collect();
+    assert!(
+        pitches.windows(2).any(|w| (w[0] - w[1]).abs() > 0.02),
+        "{pitches:?}"
+    );
+    assert!(
+        pitches.iter().all(|p| (0.85..=1.2).contains(p)),
+        "{pitches:?}"
+    );
+    // 区切りの最後の間は元のまま(セリフ間の間を壊さない)
+    assert_eq!(
+        segs.last().unwrap().gap_after_ms,
+        out.last().unwrap().gap_after_ms
+    );
+    // 短い区切りはそのまま
+    let short = vec![Segment::plain("パーフェクト！")];
+    assert_eq!(short, SpeechText::intonate(short.clone()));
+    assert!(SpeechText::intonate(vec![]).is_empty());
+}

@@ -60,6 +60,8 @@ pub struct AlarmEntry {
     pub pre_phrases: Vec<String>,
     /// メイドちゃん2人でハモる(同じ文を2つの声で同時に)。
     pub harmony: bool,
+    /// 読み上げのとき、音も一緒に鳴らす(声の下に音を流す)。既定はオフ=声だけ。`kind`が`Sound`のときは無関係。
+    pub speech_sound: bool,
 }
 
 impl AlarmEntry {
@@ -76,6 +78,7 @@ impl AlarmEntry {
             phrases: Vec::new(),
             pre_phrases: Vec::new(),
             harmony: false,
+            speech_sound: false,
         }
     }
 }
