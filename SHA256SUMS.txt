@@ -1,0 +1,2 @@
+48ee72e96387e8359cb0b3a7a35e305aa3db004039c4817c10a5ecc6635664cf  windows/maid-cafe-se-installer.exe
+f2d8028e9bb86a5fb4f1c7cab04635b7c8434c6480dfba68894860f69b45d847  android/mobile/maid-cafe-se_0.5.3_android.apk
