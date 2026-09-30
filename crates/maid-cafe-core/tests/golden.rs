@@ -1,8 +1,9 @@
 //! 旧Kotlin版の音声処理(`VoiceDsp.render`)の出力(`tests/golden/*.f32`、float32リトルエンディアン)と、
 //! Rust版の出力を数値で照合する。「テストが通る」だけでなく「同じ入力で同じ音が出る」ことの保証。
+//! 旧方式(`Mode::Legacy`)との照合。既定の新方式(音程と声の太さを独立に制御)は`tests/formant.rs`で検証する。
 //! フィクスチャはKotlin版で生成したもの(Kotlin版は移行後に削除されるが、この基準は回帰防止として残す)。
 
-use maid_cafe_core::audio::dsp::{render, SourceGender};
+use maid_cafe_core::audio::dsp::{render_with, Mode, SourceGender};
 use maid_cafe_core::audio::wav::Pcm;
 use maid_cafe_core::VoiceStyle;
 use std::f64::consts::PI;
@@ -41,7 +42,7 @@ fn diff(a: &[f32], b: &[f32]) -> (f32, f64) {
 
 fn check(name: &str, style: VoiceStyle, src: SourceGender, harmony: bool, pitch_mul: f64) {
     let input = Pcm::new(voiced(200.0, 0.6), SR);
-    let got = render(&input, style, src, harmony, pitch_mul);
+    let got = render_with(&input, style, src, harmony, pitch_mul, Mode::Legacy);
     let want = golden(name);
     let (max, rel) = diff(&got.samples, &want);
     eprintln!("{name}: len={} max_abs_err={max:.5} rel_rms_err={rel:.5}", want.len());

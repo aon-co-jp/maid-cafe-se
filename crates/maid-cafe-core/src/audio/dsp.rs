@@ -3,6 +3,7 @@
 //!    WSOLAで元の長さに戻す。
 //!  - 「ハモり」は同じ音声から音程違い(長3度上)の声を作って重ねるため、2人のタイミングが完全に揃う。
 
+use super::formant::shift_formants;
 use super::resampler::speed_up;
 use super::wav::Pcm;
 use crate::model::VoiceStyle;
@@ -16,29 +17,41 @@ pub enum SourceGender {
     Unknown,
 }
 
-/// 声ごとの変換レシピ。`pitch_ratio`は音程(と声の太さ)の倍率。
+/// 声ごとの変換レシピ。`pitch_ratio`は音程の倍率、`formant_ratio`は声の太さ(声道の大きさ=フォルマント)の倍率
+/// (1より大きいと細く高い声、小さいと太い声)。両者は独立に決める。
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Recipe {
     pub pitch_ratio: f64,
+    pub formant_ratio: f64,
     pub low_shelf_db: f64,
     pub high_shelf_db: f64,
 }
 
+/// 変換方式。`Legacy`は旧方式(リサンプリングで音程と声の太さが同じ比率で動く。Kotlin版と同一の出力で、
+/// 照合テスト用に残している)、`FormantIndependent`は音程と声の太さを独立に制御する(既定)。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    Legacy,
+    FormantIndependent,
+}
+
+/// 声のレシピ。声の太さの倍率は、音声学の目安(成人男性と女性のフォルマントの比はおよそ1.15〜1.2)に基づく:
+/// 男性→女性は約1.2倍、女性→「太い男性」は約0.8倍。極端な倍率(音程と同じ0.72倍など)は不自然な「怪物声」になる。
 pub fn recipe(style: VoiceStyle, source: SourceGender) -> Recipe {
     let male = source == SourceGender::Male;
     match style {
         VoiceStyle::Maid => {
             if male {
-                Recipe { pitch_ratio: 1.45, low_shelf_db: 0.0, high_shelf_db: 3.0 }
+                Recipe { pitch_ratio: 1.45, formant_ratio: 1.22, low_shelf_db: 0.0, high_shelf_db: 3.0 }
             } else {
-                Recipe { pitch_ratio: 1.12, low_shelf_db: 0.0, high_shelf_db: 3.0 }
+                Recipe { pitch_ratio: 1.12, formant_ratio: 1.06, low_shelf_db: 0.0, high_shelf_db: 3.0 }
             }
         }
         VoiceStyle::DeepMale => {
             if male {
-                Recipe { pitch_ratio: 0.86, low_shelf_db: 4.0, high_shelf_db: -1.0 }
+                Recipe { pitch_ratio: 0.86, formant_ratio: 0.90, low_shelf_db: 4.0, high_shelf_db: -1.0 }
             } else {
-                Recipe { pitch_ratio: 0.72, low_shelf_db: 5.0, high_shelf_db: -2.0 }
+                Recipe { pitch_ratio: 0.72, formant_ratio: 0.82, low_shelf_db: 5.0, high_shelf_db: -2.0 }
             }
         }
     }
@@ -49,14 +62,24 @@ pub fn major_third() -> f64 {
     2f64.powf(4.0 / 12.0)
 }
 
-/// `pitch_mul`はセリフごとの抑揚(音程への追加倍率)。
+/// `pitch_mul`はセリフごとの抑揚(音程への追加倍率)。音程と声の太さを独立に制御する既定の方式で変換する。
 pub fn render(pcm: &Pcm, style: VoiceStyle, source: SourceGender, harmony: bool, pitch_mul: f64) -> Pcm {
-    let mut r = recipe(style, source);
-    r.pitch_ratio *= pitch_mul;
+    render_with(pcm, style, source, harmony, pitch_mul, Mode::FormantIndependent)
+}
+
+/// [`render`]の方式指定版。
+pub fn render_with(pcm: &Pcm, style: VoiceStyle, source: SourceGender, harmony: bool, pitch_mul: f64, mode: Mode) -> Pcm {
+    let r = recipe(style, source);
+    let pitch_ratio = r.pitch_ratio * pitch_mul; // セリフごとの抑揚は音程だけに掛ける(声の太さは変えない)
     let sr = pcm.sample_rate;
     let x = high_pass(&pcm.samples, sr, 70.0);
-    let voice = |ratio: f64| -> Vec<f32> {
-        let mut v = pitch_shift(&x, sr, ratio);
+    // `ratio`: この声に掛ける音程倍率、`formant`: この声の目標の声の太さ倍率
+    let voice = |ratio: f64, formant: f64| -> Vec<f32> {
+        let mut v = if mode == Mode::FormantIndependent {
+            pitch_shift_formant(&x, sr, ratio, formant)
+        } else {
+            pitch_shift(&x, sr, ratio)
+        };
         if r.low_shelf_db != 0.0 {
             v = low_shelf(&v, sr, 180.0, r.low_shelf_db);
         }
@@ -65,9 +88,10 @@ pub fn render(pcm: &Pcm, style: VoiceStyle, source: SourceGender, harmony: bool,
         }
         v
     };
-    let a = voice(r.pitch_ratio);
+    let a = voice(pitch_ratio, r.formant_ratio);
     let out = if harmony {
-        let b = voice(r.pitch_ratio * major_third());
+        // 2人目は声の太さを少し変えて、別人らしくする
+        let b = voice(pitch_ratio * major_third(), r.formant_ratio * 1.04);
         let delay = (sr as f64 * 0.018) as usize; // 18msずらして「別の2人」の厚みを出す
         let mut mixed = vec![0f32; a.len().max(b.len() + delay)];
         for (i, v) in a.iter().enumerate() {
@@ -83,6 +107,12 @@ pub fn render(pcm: &Pcm, style: VoiceStyle, source: SourceGender, harmony: bool,
     let mut y = normalize_loudness(&trim_silence(&out, sr, -50.0, 40), 0.18);
     fade(&mut y, sr);
     Pcm::new(y, sr)
+}
+
+/// 長さを保ったまま、音程を`pitch_ratio`倍・声の太さ(フォルマント)を`formant_ratio`倍にする(両者は独立)。
+pub fn pitch_shift_formant(x: &[f32], sr: u32, pitch_ratio: f64, formant_ratio: f64) -> Vec<f32> {
+    // リサンプリングによる音程変更は声の太さも`pitch_ratio`倍に動かしてしまうので、目標との差だけを補正する
+    shift_formants(&pitch_shift(x, sr, pitch_ratio), sr, formant_ratio / pitch_ratio)
 }
 
 /// 長さを保ったまま音程(とフォルマント)を`ratio`倍にする。
