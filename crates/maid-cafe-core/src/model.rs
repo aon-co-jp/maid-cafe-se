@@ -3,35 +3,8 @@
 use crate::recurrence::Schedule;
 use chrono::NaiveDateTime;
 
-/// 読み上げの声。`Maid`=メイドカフェ風(高め・口調変換)、`DeepMale`=太くて低い男性。
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum VoiceStyle {
-    Maid,
-    DeepMale,
-}
-
-impl VoiceStyle {
-    pub const ALL: [VoiceStyle; 2] = [VoiceStyle::Maid, VoiceStyle::DeepMale];
-
-    /// 保存形式での名前(Android/Kotlin版と同じ)。
-    pub fn name(self) -> &'static str {
-        match self {
-            VoiceStyle::Maid => "MAID",
-            VoiceStyle::DeepMale => "DEEP_MALE",
-        }
-    }
-
-    pub fn from_name(s: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|v| v.name() == s)
-    }
-
-    pub fn display(self) -> &'static str {
-        match self {
-            VoiceStyle::Maid => "メイドカフェ風",
-            VoiceStyle::DeepMale => "太く低い男性",
-        }
-    }
-}
+/// 読み上げの声(`Maid`=メイドカフェ風、`DeepMale`=太くて低い男性)。実体は共有クレート`open-runo-voice`。
+pub use open_runo_voice::VoiceStyle;
 
 /// 鳴らし方。`Sound`=著作権フリー音、`Speech`=入力文章の読み上げ。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

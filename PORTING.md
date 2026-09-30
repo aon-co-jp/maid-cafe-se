@@ -48,10 +48,11 @@
 
 | 項目 | 内容 | 結果 |
 |---|---|---|
-| ① 音程と声の太さを独立に制御 | `crates/maid-cafe-core/src/audio/formant.rs`(FFT+ケプストラム包絡の周波数伸縮)、レシピに`formant_ratio` | 直接合成した正解の母音との包絡距離: 新1.6dB vs 旧10.3dB(音程0.72倍・声の太さ据え置き)、独立制御は0.6〜1.1dB(未処理は約8dB)。ゲイン上限は±12dBだと鋭いフォルマントを動かせず±24dBで解決 |
+| ① 音程と声の太さを独立に制御 | RPoemの共有クレート`open-runo-voice`の`formant.rs`(FFT+ケプストラム包絡の周波数伸縮)、レシピに`formant_ratio` | 直接合成した正解の母音との包絡距離: 新1.6dB vs 旧10.3dB(音程0.72倍・声の太さ据え置き)、独立制御は0.6〜1.1dB(未処理は約8dB)。ゲイン上限は±12dBだと鋭いフォルマントを動かせず±24dBで解決 |
 | ② AI帯域拡張(LavaSR) | `crates/maid-cafe-enhance`。make-diskの`audio_sr.rs`の設計を移植(入力の帯域は変えず、高域だけを頭打ちつきで足す)。**声向けのロールオフ検出**を新設(TTSの声は「崖」でなくなだらかに減衰するため、音楽向けの崖検出は12.4kHzを返し無意味だった)。モデルは固定リビジョンから取得しSHA-256検証(同梱も可、`load_bundled_or_download`) | 実データ(Windows音声Haruka)で、ロールオフ7.5kHzを検出。自己教師あり評価(6kHzで帯域制限→拡張→元の音声とのLSD、6〜9.5kHz): 46.8dB→12.9dB、入力の帯域は変化なし(低域LSDが完全一致)。**LSDはスペクトル包絡の近さで聴感品質ではない。拡張前は帯域が無音のため、差の大部分は「何か入れれば縮む」分**。モデル読み込み0.2秒(取得済み時)、処理は音声6.8秒に1.0秒 |
 | ③ 日本語ニューラルTTS | 上の「ニューラルTTS調査記録」参照 | 安全に同梱できるモデルは未発見 |
 
+- **共有クレート化(2026-09-30、ユーザー指示「RPoem内に共有クレート」)**: 音声の後処理(声の太さの独立制御・ハモり・音量統一・リサンプラ・WSOLA・WAV・FFT)は、RPoemの`crates/open-runo-voice`(依存無しの純Rust、`docs/voice.md`)へ切り出した。`maid-cafe-core::audio`はそれを再公開しているだけで、呼び出しは変わらない。**この`maid-cafe-se`のRustワークスペースをビルドするには、兄弟ディレクトリに`RPoem`(`F:\RPoem`)が必要**(`crates/maid-cafe-core/Cargo.toml`のパス依存`../../../RPoem/crates/open-runo-voice`。open-englishなど他のaon-co-jpプロジェクトと同じ参照のしかた)。音声処理の単体テスト36件(旧Kotlin版との照合フィクスチャ`tests/golden/`を含む)もRPoem側へ移った。AI帯域拡張(`crates/maid-cafe-enhance`)は、tractなど重い依存をRPoem本体のロックファイルへ持ち込まないため、このリポジトリに残している。
 - ライセンス: LavaSR本体・audiosronnxともApache-2.0、学習データはVCTK(CC BY 4.0)。配布物のNOTICEに出典を載せる(`maid_cafe_enhance::NOTICE`)。
 - モデルは約56MB(backbone 51.8MB + spec_head 4.2MB)。取得済みのSHA-256は`crates/maid-cafe-enhance/src/lib.rs`に固定。
 

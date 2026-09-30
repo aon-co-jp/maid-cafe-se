@@ -8,3 +8,5 @@ description = "maid-cafe-se のコア(繰り返しルール・日本の祝日・
 
 [dependencies]
 chrono = { workspace = true }
+# 声の後処理は、RPoem内の共有クレート(兄弟ディレクトリ F:\RPoem)。他のaon-co-jpプロジェクトと同じ参照のしかた
+open-runo-voice = { path = "../../../RPoem/crates/open-runo-voice" }

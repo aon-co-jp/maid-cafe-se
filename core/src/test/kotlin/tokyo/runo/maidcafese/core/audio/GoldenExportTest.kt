@@ -11,7 +11,7 @@ import tokyo.runo.maidcafese.core.VoiceStyle
 /**
  * Rust移植版との照合用に、Kotlin版の音声処理の出力(float32リトルエンディアン)を書き出す。
  * 環境変数 MCS_GOLDEN_DIR が設定されているときだけ動く(通常のテスト実行では何もしない)。
- * 書き出し先: crates/maid-cafe-core/tests/golden/
+ * 書き出し先(Rust版の照合フィクスチャ): RPoem/crates/open-runo-voice/tests/golden/
  */
 class GoldenExportTest {
     private val sr = 22050

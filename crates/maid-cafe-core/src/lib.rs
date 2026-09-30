@@ -5,9 +5,14 @@
 //! - [`model`]: アラーム・予定・設定のデータと、メイドのセリフ(喋る順の番号つき)
 //! - [`planner`]: 「次に鳴らすもの」と読み上げ文の生成
 //! - [`codec`]: 保存形式(旧Kotlin版と互換)
-//! - [`audio`]: TTS出力の後処理(声質変換・ハモり・音量統一)
+//! - [`audio`]: TTS出力の後処理(声質変換・ハモり・音量統一)。実体はRPoemの共有クレート`open-runo-voice`
 
-pub mod audio;
+/// 音声の後処理。実体は共有クレート`open-runo-voice`(RPoem、`docs/voice.md`)。従来の`maid_cafe_core::audio::*`の
+/// 呼び出しを変えないための再公開。
+pub mod audio {
+    pub use open_runo_voice::{dsp, fft, formant, resampler, wav};
+    pub use open_runo_voice::{parse_wav, recipe, render, render_with, to_pcm16, wav_bytes, Mode, Pcm, Recipe, SourceGender};
+}
 pub mod codec;
 pub mod days;
 pub mod holidays;
