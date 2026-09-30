@@ -82,6 +82,11 @@ object MaidPhrases {
     )
 
     val all = listOf(
+        // 目覚まし用。カタログ順=連結順なので、起こすセリフは先頭(ほかのセリフと組み合わせたとき最初に喋る)。
+        Phrase(
+            "okite", "ご主人さま～、お～き～て～。今日も頑張って～", "ご主人さまー、おーきーてー。今日も、がんばってー",
+            pitch = 1.04, rate = 0.8f, gapMs = 350,
+        ),
         Phrase("okaeri", "おかえりなさいませご主人様！", "おかえりなさいませ、ご主人様！", pitch = 1.0, rate = 0.95f, gapMs = 350),
         Phrase("oishiku", "おいしくな～れ萌え萌えキュ～ン", "おいしくなーれ、もえもえきゅーん！", pitch = 1.06, rate = 0.85f, gapMs = 400),
         Phrase(

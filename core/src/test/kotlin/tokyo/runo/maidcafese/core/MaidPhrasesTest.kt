@@ -27,7 +27,7 @@ class MaidPhrasesTest {
     private fun first(e: AlarmEntry, after: LocalDateTime = dt(0)) =
         Planner.next(listOf(e), emptyList(), CalendarSettings(), after, NoHolidays).first()
 
-    @Test fun catalogHasTheSixRequestedPhrases() {
+    @Test fun catalogHasTheRequestedPhrases() {
         val display = MaidPhrases.all.map { it.display }
         assertTrue("おかえりなさいませご主人様！" in display)
         assertTrue("おいしくな～れ萌え萌えキュ～ン" in display)
@@ -35,7 +35,8 @@ class MaidPhrasesTest {
         assertTrue("ファイト！ファイト！" in display)
         assertTrue("エクセレント！" in display)
         assertTrue("パーフェクト！" in display)
-        assertEquals(6, MaidPhrases.all.map { it.id }.toSet().size)
+        assertTrue("ご主人さま～、お～き～て～。今日も頑張って～" in display)
+        assertEquals(7, MaidPhrases.all.map { it.id }.toSet().size)
     }
 
     @Test fun singlePhraseAppendedAfterMessage() {
@@ -51,6 +52,15 @@ class MaidPhrasesTest {
         val i2 = speech.indexOf("ファイト！ファイト！")
         val i3 = speech.indexOf("パーフェクト！")
         assertTrue(i1 in 0 until i2 && i2 < i3, speech)
+    }
+
+    @Test fun wakeUpPhraseComesFirstWhenCombined() {
+        val speech = first(entry(text = "", phrases = setOf("okaeri", "okite"))).speech!!
+        assertTrue(speech.startsWith("ご主人さまー、おーきーてー。今日も、がんばってー"), speech)
+        assertTrue(speech.indexOf("おかえりなさいませ") > speech.indexOf("おーきーてー"))
+        val seg = first(entry(text = "", phrases = setOf("okite"))).segments
+        assertEquals(1, seg.size)
+        assertEquals(0.8f, seg[0].rate) // ゆっくり間延びさせて読む
     }
 
     @Test fun phrasesOnlyWhenTextBlank() {
