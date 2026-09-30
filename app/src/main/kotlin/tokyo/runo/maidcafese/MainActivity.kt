@@ -46,6 +46,7 @@ import java.util.UUID
 import tokyo.runo.maidcafese.core.AlarmEntry
 import tokyo.runo.maidcafese.core.AlarmKind
 import tokyo.runo.maidcafese.core.CalendarSettings
+import tokyo.runo.maidcafese.core.MaidPhrases
 import tokyo.runo.maidcafese.core.Recurrence
 import tokyo.runo.maidcafese.core.SoundCatalog
 import tokyo.runo.maidcafese.core.SpeechText
@@ -129,7 +130,9 @@ fun App() {
                                 Text(
                                     (if (e.kind == AlarmKind.SOUND) "音: " + (SoundCatalog.all.firstOrNull { it.id == e.soundId }?.displayName ?: e.soundId)
                                     else "読み上げ(" + voiceName(e.voice) + ")") +
-                                        (e.schedule.preNoticeMinutes?.let { " / ${it}分前に予告" } ?: ""),
+                                        (e.schedule.preNoticeMinutes?.let { " / ${it}分前に予告" } ?: "") +
+                                        (if (e.phrases.isNotEmpty() || e.prePhrases.isNotEmpty()) " / メイドのセリフ" else "") +
+                                        (if (e.harmony) " / ハモり" else ""),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
@@ -196,19 +199,53 @@ fun CalendarCard(s: CalendarSettings, onChange: (CalendarSettings) -> Unit, onEn
                     Text("${s.preNoticeMinutes}分前に予告する")
                 }
                 VoicePicker(s.voice) { onChange(s.copy(voice = it)) }
+                Text("メイドのセリフ(予定の時刻に)", style = MaterialTheme.typography.titleSmall)
+                PhrasePicker(s.phrases) { onChange(s.copy(phrases = it)) }
+                if (s.preNotice) {
+                    Text("メイドのセリフ(${s.preNoticeMinutes}分前の予告に)", style = MaterialTheme.typography.titleSmall)
+                    PhrasePicker(s.prePhrases) { onChange(s.copy(prePhrases = it)) }
+                }
+                HarmonyCheck(s.harmony) { onChange(s.copy(harmony = it)) }
             }
         }
     }
 }
 
 @Composable
-fun TestButton(kind: AlarmKind, soundId: String, text: String, voice: VoiceStyle) {
+fun PhrasePicker(selected: Set<String>, onChange: (Set<String>) -> Unit) {
+    Column {
+        MaidPhrases.all.forEach { p ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = p.id in selected,
+                    onCheckedChange = { on -> onChange(if (on) selected + p.id else selected - p.id) },
+                )
+                Text(p.display, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+fun HarmonyCheck(harmony: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = harmony, onCheckedChange = onChange)
+        Text("メイドちゃん2人でハモる(声を重ねる)")
+    }
+}
+
+@Composable
+fun TestButton(entry: AlarmEntry) {
     val ctx = LocalContext.current
     OutlinedButton(onClick = {
         val i = Intent(ctx, AlarmService::class.java).setAction(AlarmService.ACTION_TEST)
-            .putExtra(AlarmService.EXTRA_VOICE, voice.name)
-        if (kind == AlarmKind.SOUND) i.putExtra(AlarmService.EXTRA_SOUND, soundId)
-        else i.putExtra(AlarmService.EXTRA_SPEECH, SpeechText.alarm(text.ifBlank { "テストです" }, voice))
+            .putExtra(AlarmService.EXTRA_VOICE, entry.voice.name)
+            .putExtra(AlarmService.EXTRA_HARMONY, entry.harmony)
+        if (entry.kind == AlarmKind.SOUND) i.putExtra(AlarmService.EXTRA_SOUND, entry.soundId)
+        val speech = SpeechText.alarmSpeech(
+            entry.kind, entry.text.ifBlank { if (entry.phrases.isEmpty()) "テストです" else "" }, entry.label, entry.voice, entry.phrases,
+        )
+        if (speech != null) i.putExtra(AlarmService.EXTRA_SPEECH, speech)
         ctx.startForegroundService(i)
     }) { Text("テスト再生") }
 }

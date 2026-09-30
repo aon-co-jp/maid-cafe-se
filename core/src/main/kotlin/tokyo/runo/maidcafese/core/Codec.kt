@@ -50,6 +50,9 @@ object Codec {
         "text" to e.text,
         "voice" to e.voice.name,
         "enabled" to if (e.enabled) "1" else "0",
+        "ph" to e.phrases.joinToString(","),
+        "pph" to e.prePhrases.joinToString(","),
+        "harm" to if (e.harmony) "1" else "0",
     ).joinToString("&") { (k, v) -> "$k=${enc(v)}" }
 
     fun decode(line: String): AlarmEntry {
@@ -73,8 +76,15 @@ object Codec {
             text = m["text"] ?: "",
             voice = VoiceStyle.valueOf(m.getValue("voice")),
             enabled = m["enabled"] != "0",
+            phrases = decodeIds(m["ph"]),
+            prePhrases = decodeIds(m["pph"]),
+            harmony = m["harm"] == "1",
         )
     }
+
+    /** 保存されたセリフidを復元(未知のidは捨てる。旧バージョンのデータには欠けているので空扱い)。 */
+    fun decodeIds(s: String?): Set<String> =
+        MaidPhrases.known(s.orEmpty().split(",").filter { it.isNotEmpty() }.toSet())
 
     fun encodeAll(list: List<AlarmEntry>): String = list.joinToString("\n") { encode(it) }
 

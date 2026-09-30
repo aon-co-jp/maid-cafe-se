@@ -23,6 +23,9 @@ object Store {
             preNotice = p.getBoolean("cal_pre", true),
             preNoticeMinutes = p.getInt("cal_pre_min", 30).coerceAtLeast(1),
             voice = runCatching { VoiceStyle.valueOf(p.getString("cal_voice", "MAID")!!) }.getOrDefault(VoiceStyle.MAID),
+            phrases = Codec.decodeIds(p.getString("cal_phrases", "")),
+            prePhrases = Codec.decodeIds(p.getString("cal_pre_phrases", "")),
+            harmony = p.getBoolean("cal_harmony", false),
         )
     }
 
@@ -32,6 +35,9 @@ object Store {
             .putBoolean("cal_pre", s.preNotice)
             .putInt("cal_pre_min", s.preNoticeMinutes)
             .putString("cal_voice", s.voice.name)
+            .putString("cal_phrases", s.phrases.joinToString(","))
+            .putString("cal_pre_phrases", s.prePhrases.joinToString(","))
+            .putBoolean("cal_harmony", s.harmony)
             .apply()
     }
 }

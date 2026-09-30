@@ -65,7 +65,7 @@ private fun DayChips(selected: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Uni
 @Composable
 private fun <T> Choice(items: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
     Column {
-        items.chunked(3).forEach { row ->
+        items.chunked(2).forEach { row ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 row.forEach { item ->
                     RadioButton(selected = item == selected, onClick = { onPick(item) })
@@ -102,6 +102,9 @@ fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (Alarm
     var text by remember { mutableStateOf(initial?.text ?: "") }
     var voice by remember { mutableStateOf(initial?.voice ?: VoiceStyle.MAID) }
     var pre by remember { mutableStateOf(initial?.schedule?.preNoticeMinutes != null) }
+    var phrases by remember { mutableStateOf(initial?.phrases ?: emptySet()) }
+    var prePhrases by remember { mutableStateOf(initial?.prePhrases ?: emptySet()) }
+    var harmony by remember { mutableStateOf(initial?.harmony ?: false) }
 
     val intervalNum = interval.toIntOrNull()
     val recurrence: Recurrence? = when (recKind) {
@@ -113,7 +116,7 @@ fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (Alarm
         RecKind.EVERY -> if (days.isEmpty() || intervalNum == null || intervalNum < 1) null
         else Recurrence.EveryNWeeks(intervalNum, days, (initial?.schedule?.recurrence as? Recurrence.EveryNWeeks)?.anchor ?: LocalDate.now())
     }
-    val canSave = recurrence != null && (kind == AlarmKind.SOUND || text.isNotBlank() || label.isNotBlank())
+    val canSave = recurrence != null && (kind == AlarmKind.SOUND || text.isNotBlank() || label.isNotBlank() || phrases.isNotEmpty())
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -148,10 +151,22 @@ fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (Alarm
                 }
                 Text("声")
                 VoicePicker(voice) { voice = it }
-                TestButton(kind, soundId, text.ifBlank { label }, voice)
+                Text("メイドのセリフ(時間になったら。複数選ぶと続けて喋る)")
+                PhrasePicker(phrases) { phrases = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(pre, { pre = it }); Text("30分前に予告する")
                 }
+                if (pre) {
+                    Text("メイドのセリフ(30分前の予告に)")
+                    PhrasePicker(prePhrases) { prePhrases = it }
+                }
+                HarmonyCheck(harmony) { harmony = it }
+                TestButton(
+                    AlarmEntry(
+                        "test", label.ifBlank { "アラーム" }, Schedule(Recurrence.Daily, LocalTime.of(0, 0)),
+                        kind, soundId, text, voice, phrases = phrases, harmony = harmony,
+                    ),
+                )
             }
         },
         confirmButton = {
@@ -166,6 +181,7 @@ fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (Alarm
                         ),
                         kind = kind, soundId = soundId, text = text, voice = voice,
                         enabled = initial?.enabled ?: true,
+                        phrases = phrases, prePhrases = if (pre) prePhrases else emptySet(), harmony = harmony,
                     ),
                 )
             }) { Text("保存") }

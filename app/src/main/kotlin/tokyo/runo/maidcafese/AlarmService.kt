@@ -15,14 +15,11 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.util.Locale
 import tokyo.runo.maidcafese.core.Occurrence
 import tokyo.runo.maidcafese.core.Planner
 import tokyo.runo.maidcafese.core.VoiceStyle
@@ -39,16 +36,14 @@ class AlarmService : Service() {
         const val EXTRA_SOUND = "sound"
         const val EXTRA_SPEECH = "speech"
         const val EXTRA_VOICE = "voice"
+        const val EXTRA_HARMONY = "harmony"
     }
 
     private val main = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-    private var ttsFailed = false
-    private var pendingSpeech: List<Occurrence> = emptyList()
-    private var speechRemaining = 0
+    private var speech: SpeechPlayer? = null
     private var soundActive = false
+    private var speechPending = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var started = false
 
@@ -63,11 +58,18 @@ class AlarmService : Service() {
         started = true
         startForegroundCompat("アラーム")
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "maidcafese:alarm").apply { acquire(90_000L) }
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "maidcafese:alarm").apply { acquire(120_000L) }
 
         if (intent?.action == ACTION_TEST) {
             val voice = runCatching { VoiceStyle.valueOf(intent.getStringExtra(EXTRA_VOICE) ?: "") }.getOrDefault(VoiceStyle.MAID)
-            play(listOf(Occurrence(LocalDateTime.now(), "test", "テスト", intent.getStringExtra(EXTRA_SOUND), intent.getStringExtra(EXTRA_SPEECH), voice)))
+            play(
+                listOf(
+                    Occurrence(
+                        LocalDateTime.now(), "test", "テスト", intent.getStringExtra(EXTRA_SOUND),
+                        intent.getStringExtra(EXTRA_SPEECH), voice, intent.getBooleanExtra(EXTRA_HARMONY, false),
+                    ),
+                ),
+            )
             return START_NOT_STICKY
         }
         val timeMs = intent?.getLongExtra(Scheduler.EXTRA_TIME, 0L) ?: 0L
@@ -95,11 +97,17 @@ class AlarmService : Service() {
     private fun play(list: List<Occurrence>) {
         startForegroundCompat(list.joinToString(" / ") { it.title })
         val sound = list.firstNotNullOfOrNull { it.soundId }
-        pendingSpeech = list.filter { it.speech != null }
-        speechRemaining = pendingSpeech.size
+        val talk = list.filter { it.speech != null }
         if (sound != null) startSound(sound)
-        if (pendingSpeech.isNotEmpty()) startTts()
-        if (sound == null && pendingSpeech.isEmpty()) finish()
+        if (talk.isNotEmpty()) {
+            speechPending = true
+            speech = SpeechPlayer(
+                this, main,
+                onFinished = { speechPending = false; maybeFinish() },
+                onUnavailable = { reason -> onSpeechUnavailable(reason) },
+            ).also { it.start(talk) }
+        }
+        if (sound == null && talk.isEmpty()) finish()
     }
 
     private fun alarmAttrs() = AudioAttributes.Builder()
@@ -131,49 +139,23 @@ class AlarmService : Service() {
         player = null
     }
 
-    private fun startTts() {
-        tts = TextToSpeech(this) { status ->
-            main.post {
-                if (status != TextToSpeech.SUCCESS) { onTtsFailed("TTS初期化失敗"); return@post }
-                val engine = tts ?: return@post
-                val r = engine.setLanguage(Locale.JAPAN)
-                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    onTtsFailed("日本語音声データがありません"); return@post
-                }
-                engine.setAudioAttributes(alarmAttrs())
-                engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(id: String?) {}
-                    override fun onDone(id: String?) { main.post { speechRemaining--; maybeFinish() } }
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(id: String?) { main.post { speechRemaining--; maybeFinish() } }
-                })
-                ttsReady = true
-                pendingSpeech.forEachIndexed { i, occ ->
-                    VoiceProfile.apply(engine, occ.voice)
-                    engine.speak(occ.speech, TextToSpeech.QUEUE_ADD, null, "u$i")
-                }
-            }
-        }
-    }
-
     /** 読み上げできない端末では、無音で終わらないよう既定のチャイムに切り替える。 */
-    private fun onTtsFailed(reason: String) {
+    private fun onSpeechUnavailable(reason: String) {
         Log.w(TAG, reason)
-        ttsFailed = true
-        speechRemaining = 0
+        speechPending = false
         if (!soundActive) startSound("chime")
         maybeFinish()
     }
 
     private fun maybeFinish() {
-        if (speechRemaining <= 0 && !soundActive && (ttsReady || ttsFailed || pendingSpeech.isEmpty())) finish()
+        if (!speechPending && !soundActive) finish()
     }
 
     private fun finish() {
         main.removeCallbacksAndMessages(null)
         stopSound()
-        tts?.runCatching { stop(); shutdown() }
-        tts = null
+        speech?.stop()
+        speech = null
         wakeLock?.runCatching { if (isHeld) release() }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -181,7 +163,7 @@ class AlarmService : Service() {
 
     override fun onDestroy() {
         stopSound()
-        tts?.runCatching { shutdown() }
+        speech?.stop()
         wakeLock?.runCatching { if (isHeld) release() }
         super.onDestroy()
     }
@@ -204,30 +186,6 @@ class AlarmService : Service() {
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } else {
             startForeground(NOTIF_ID, n)
-        }
-    }
-}
-
-/** 声の選択。端末のTTS音声から best-effort で男女を選び、ピッチ/速度で「高め」「太く低い」を作る。 */
-object VoiceProfile {
-    private val FEMALE_HINTS = listOf("female", "jab", "htm", "-f-")
-    private val MALE_HINTS = listOf("jac", "jad", "-m-")
-
-    fun apply(tts: TextToSpeech, voice: VoiceStyle) {
-        val ja = runCatching { tts.voices.filter { it.locale.language == "ja" && !it.isNetworkConnectionRequired } }.getOrDefault(emptyList())
-        fun pick(hints: List<String>, avoid: List<String>) = ja.firstOrNull { v ->
-            val n = v.name.lowercase()
-            hints.any { n.contains(it) } && avoid.none { n.contains(it) }
-        }
-        when (voice) {
-            VoiceStyle.MAID -> {
-                pick(FEMALE_HINTS, emptyList())?.let { tts.voice = it }
-                tts.setPitch(1.4f); tts.setSpeechRate(1.1f)
-            }
-            VoiceStyle.DEEP_MALE -> {
-                (pick(MALE_HINTS, FEMALE_HINTS) ?: pick(listOf("male"), listOf("female")))?.let { tts.voice = it }
-                tts.setPitch(0.55f); tts.setSpeechRate(0.85f)
-            }
         }
     }
 }

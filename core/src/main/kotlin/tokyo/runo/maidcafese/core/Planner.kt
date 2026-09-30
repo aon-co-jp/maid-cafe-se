@@ -4,6 +4,19 @@ import java.time.LocalDateTime
 
 /** 読み上げ文の生成。TTSが読み間違えやすい記号(♪等)は入れない。 */
 object SpeechText {
+    /** [base]の後ろに選択されたセリフを(カタログ順で)続ける。何も無ければnull。 */
+    fun withPhrases(base: String?, ids: Set<String>): String? {
+        val spoken = MaidPhrases.all.filter { it.id in ids }.map { it.spoken }
+        val parts = listOfNotNull(base) + spoken
+        return if (parts.isEmpty()) null else parts.joinToString(" ")
+    }
+
+    /** 指定時刻の読み上げ文。読み上げ文が空でセリフだけ選ばれている場合はセリフのみ。 */
+    fun alarmSpeech(kind: AlarmKind, text: String, label: String, voice: VoiceStyle, ids: Set<String>): String? {
+        val base = if (kind == AlarmKind.SPEECH && !(text.isBlank() && ids.isNotEmpty())) alarm(text.ifBlank { label }, voice) else null
+        return withPhrases(base, ids)
+    }
+
     fun alarm(text: String, voice: VoiceStyle): String = when (voice) {
         VoiceStyle.MAID -> "ご主人様、お時間ですよ。${text.trim()}。忘れずにお願いしますね"
         VoiceStyle.DEEP_MALE -> "時間だ。${text.trim()}"
@@ -40,15 +53,16 @@ object Planner {
                 candidates += Occurrence(
                     time = t, key = "alarm:${e.id}", title = e.label,
                     soundId = if (e.kind == AlarmKind.SOUND) e.soundId else null,
-                    speech = if (e.kind == AlarmKind.SPEECH) SpeechText.alarm(e.text.ifBlank { e.label }, e.voice) else null,
-                    voice = e.voice,
+                    speech = SpeechText.alarmSpeech(e.kind, e.text, e.label, e.voice, e.phrases),
+                    voice = e.voice, harmony = e.harmony,
                 )
             }
             val m = e.schedule.preNoticeMinutes
             e.schedule.nextPreNotice(after, holidays)?.let { t ->
                 candidates += Occurrence(
                     time = t, key = "pre:${e.id}", title = e.label, soundId = null,
-                    speech = SpeechText.preNotice(e.label, m!!, e.voice), voice = e.voice,
+                    speech = SpeechText.withPhrases(SpeechText.preNotice(e.label, m!!, e.voice), e.prePhrases),
+                    voice = e.voice, harmony = e.harmony,
                 )
             }
         }
@@ -57,14 +71,18 @@ object Planner {
                 if (ev.start.isAfter(after)) {
                     candidates += Occurrence(
                         time = ev.start, key = "cal:${ev.id}@${ev.start}", title = ev.title, soundId = null,
-                        speech = SpeechText.calendar(ev.title, settings.voice), voice = settings.voice,
+                        speech = SpeechText.withPhrases(SpeechText.calendar(ev.title, settings.voice), settings.phrases),
+                        voice = settings.voice, harmony = settings.harmony,
                     )
                 }
                 val pre = ev.start.minusMinutes(settings.preNoticeMinutes.toLong())
                 if (settings.preNotice && pre.isAfter(after)) {
                     candidates += Occurrence(
                         time = pre, key = "calpre:${ev.id}@${ev.start}", title = ev.title, soundId = null,
-                        speech = SpeechText.preNotice(ev.title, settings.preNoticeMinutes, settings.voice), voice = settings.voice,
+                        speech = SpeechText.withPhrases(
+                            SpeechText.preNotice(ev.title, settings.preNoticeMinutes, settings.voice), settings.prePhrases,
+                        ),
+                        voice = settings.voice, harmony = settings.harmony,
                     )
                 }
             }

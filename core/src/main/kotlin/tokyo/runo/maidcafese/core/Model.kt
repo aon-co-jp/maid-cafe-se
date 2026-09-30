@@ -18,6 +18,12 @@ data class AlarmEntry(
     val text: String = "",
     val voice: VoiceStyle = VoiceStyle.MAID,
     val enabled: Boolean = true,
+    /** 指定時刻に喋るメイドのセリフ([MaidPhrases]のid、複数可)。 */
+    val phrases: Set<String> = emptySet(),
+    /** 予告時に喋るメイドのセリフ。 */
+    val prePhrases: Set<String> = emptySet(),
+    /** メイドちゃん2人でハモる(同じ文を2つの声で同時に)。 */
+    val harmony: Boolean = false,
 )
 
 /** Googleカレンダー(端末同期分)の予定1件。 */
@@ -29,6 +35,9 @@ data class CalendarSettings(
     val preNotice: Boolean = true,
     val preNoticeMinutes: Int = 30,
     val voice: VoiceStyle = VoiceStyle.MAID,
+    val phrases: Set<String> = emptySet(),
+    val prePhrases: Set<String> = emptySet(),
+    val harmony: Boolean = false,
 ) {
     init { require(preNoticeMinutes > 0) { "予告は1分以上前" } }
 }
@@ -54,4 +63,25 @@ data class Occurrence(
     val soundId: String?,
     val speech: String?,
     val voice: VoiceStyle,
+    val harmony: Boolean = false,
 )
+
+/** メイドのセリフ集。[display]は画面表示、[spoken]はTTSが読み間違えにくい表記(長音・かな)。 */
+object MaidPhrases {
+    data class Phrase(val id: String, val display: String, val spoken: String)
+
+    val all = listOf(
+        Phrase("okaeri", "おかえりなさいませご主人様！", "おかえりなさいませ、ご主人様！"),
+        Phrase("oishiku", "おいしくな～れ萌え萌えキュ～ン", "おいしくなーれ、もえもえきゅーん！"),
+        Phrase(
+            "meh",
+            "メッ！ダメなんだぞこら！いつまでもクヨクヨしてないでメイドちゃんと一緒にやる気を出して頑張って行きましょう！",
+            "めっ！だめなんだぞ、こら！いつまでもくよくよしてないで、メイドちゃんと一緒に、やる気を出して、頑張って行きましょう！",
+        ),
+        Phrase("fight", "ファイト！ファイト！", "ファイト！ファイト！"),
+        Phrase("excellent", "エクセレント！", "エクセレント！"),
+        Phrase("perfect", "パーフェクト！", "パーフェクト！"),
+    )
+
+    fun known(ids: Set<String>): Set<String> = ids.filterTo(LinkedHashSet()) { id -> all.any { it.id == id } }
+}
