@@ -41,6 +41,7 @@ class SpeechPlayer(
     private var sampleRate = 0
     private var track: AudioTrack? = null
     private var stopped = false
+    private var voiceWait = 0
 
     fun start(list: List<Occurrence>) {
         items = list
@@ -107,6 +108,13 @@ class SpeechPlayer(
         if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
             onUnavailable("その言語(${Langs.byCode(item.lang).name})の音声データがありません"); return
         }
+        // 起動直後は、エンジンの音声の一覧がまだ空のことがある(1回目だけ、選んだ声ではなく既定の声で鳴る原因)。一覧が出るまで少し待つ(最大3秒)
+        if (Voices.voicesFor(engine, item.lang).isEmpty() && voiceWait < 10) {
+            voiceWait++
+            main.postDelayed({ next() }, 300)
+            return
+        }
+        voiceWait = 0
         segs = item.segments.ifEmpty { listOf(Segment(item.speech.orEmpty())) }
         parts = ArrayList()
         synth(0)
@@ -235,10 +243,17 @@ object Voices {
         val ja = voicesFor(tts, lang)
         val preferredName = if (lang == "ja") preferredName else null
         val want = if (style == VoiceStyle.MAID) SourceGender.FEMALE else SourceGender.MALE
+        // 性別の手がかりが名前に無い音声(en-us-x-tpf-local など)も多いので、最後は「その言語の最初の音声」を必ず選ぶ。
+        // 何も選ばないと、前に使った別の言語の声が残ったまま、この言語の文を読んでしまう
         (ja.firstOrNull { it.name == preferredName }
             ?: ja.firstOrNull { genderOfName(it.name) == want }
-            ?: ja.firstOrNull { genderOfName(it.name) != SourceGender.UNKNOWN })
+            ?: ja.firstOrNull { genderOfName(it.name) != SourceGender.UNKNOWN }
+            ?: ja.firstOrNull())
             ?.let { tts.voice = it }
+        // それでも別の言語の声のままなら、言語の設定をやり直す(声の性別は、音声そのものの高さから、Rust側で補正する)
+        if (runCatching { tts.voice?.locale?.language }.getOrNull() != lang) {
+            tts.setLanguage(Langs.byCode(lang).locale)
+        }
         tts.setPitch(1f)
         return when (style) {
             VoiceStyle.MAID -> (if (neutralPitch) 1f else 1.4f) to (if (neutralPitch) 1.0f else 1.1f)
