@@ -1,0 +1,14 @@
+[package]
+name = "maid-cafe-enhance"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TTS音声のAI帯域拡張(LavaSR、Apache-2.0、ONNXをtractで推論)。make-diskのaudio_sr.rsの設計(入力の帯域は変えず、足りない高域だけを頭打ちつきで足す)を移植したもの。"
+
+[dependencies]
+maid-cafe-core = { path = "../maid-cafe-core" }
+rustfft = "6"
+tract-onnx = "0.21"
+ureq = "2"
+sha2 = "0.10"
