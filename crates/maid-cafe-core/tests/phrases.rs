@@ -23,7 +23,7 @@ fn simple(text: &str, phrases: &[&str]) -> AlarmEntry {
 }
 
 fn first(e: &AlarmEntry, after: chrono::NaiveDateTime) -> Occurrence {
-    Planner::next(&[e.clone()], &[], &CalendarSettings::default(), after, &NoHolidays).remove(0)
+    Planner::next(std::slice::from_ref(&e), &[], &CalendarSettings::default(), after, &NoHolidays).remove(0)
 }
 
 fn t0() -> chrono::NaiveDateTime {
@@ -222,7 +222,7 @@ fn calendar_phrases_and_harmony() {
         harmony: true,
         ..Default::default()
     };
-    let pre = Planner::next(&[], &[ev.clone()], &st, dt(2026, 9, 30, 8, 0), &NoHolidays).remove(0);
+    let pre = Planner::next(&[], std::slice::from_ref(&ev), &st, dt(2026, 9, 30, 8, 0), &NoHolidays).remove(0);
     assert_eq!(dt(2026, 9, 30, 9, 30), pre.time);
     assert!(pre.speech.unwrap().ends_with("エクセレント！") && pre.harmony);
     let main = Planner::next(&[], &[ev], &st, dt(2026, 9, 30, 9, 30), &NoHolidays).remove(0);
@@ -241,7 +241,7 @@ fn selection_order_survives_codec() {
 #[test]
 fn codec_round_trip_and_backward_compat() {
     let e = entry("", &["okaeri", "fight"], &["oishiku"], true, Some(30), AlarmKind::Speech, VoiceStyle::Maid);
-    assert_eq!(vec![e.clone()], codec::decode_all(&codec::encode_all(&[e.clone()])));
+    assert_eq!(vec![e.clone()], codec::decode_all(&codec::encode_all(std::slice::from_ref(&e))));
     // 旧バージョンの保存行(ph/pph/harm無し)も読める
     let legacy: String = codec::encode(&e).split('&').filter(|p| !p.starts_with("ph=") && !p.starts_with("pph=") && !p.starts_with("harm=")).collect::<Vec<_>>().join("&");
     let d = codec::decode(&legacy).unwrap();

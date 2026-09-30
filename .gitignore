@@ -8,5 +8,4 @@ local.properties
 .DS_Store
 installer/dist/
 tools/gen-sounds/target/
-desktop/build/
 /target/

@@ -2,41 +2,46 @@
 #
 # 使い方 / Usage:
 #   powershell -ExecutionPolicy Bypass -File installer\build-windows.ps1
-# 必要なもの / Requires: JDK 17 (jpackage入り), NSIS 3 (makensis), Android Studio同梱JBR等のGradle用JDK
+# 必要なもの / Requires: Rust (cargo, MSVC), NSIS 3 (makensis)。JDKは不要(v0.5.0からRust製)。
 # 出力 / Output: installer\dist\maid-cafe-se-installer.exe と SHA256SUMS.txt への追記(distはgit管理外)
 param(
-    [string]$JavaHome = "C:\Program Files\Android\Android Studio\jbr",   # Gradleを動かすJDK
-    [string]$JpackageJdk = "C:\Program Files\Java\jdk-17",               # jpackageを含むJDK
     [string]$Makensis = "C:\Program Files (x86)\NSIS\makensis.exe",
     [switch]$SkipSelfTest
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-if (-not (Test-Path (Join-Path $JpackageJdk 'bin\jpackage.exe'))) { throw "jpackage.exeが見つかりません / jpackage not found in $JpackageJdk" }
+$cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
+if (Test-Path $cargoBin) { $env:PATH = "$cargoBin;$env:PATH" }
+if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { throw "cargoが見つかりません(Rustを入れてください) / cargo not found" }
 if (-not (Test-Path $Makensis)) { throw "makensisが見つかりません(NSIS 3を入れてください) / makensis not found: $Makensis" }
-if (Test-Path $JavaHome) { $env:JAVA_HOME = $JavaHome }
-$env:MAID_CAFE_SE_JPACKAGE_JDK = $JpackageJdk
 
-$gradle = Get-Content (Join-Path $root 'desktop\build.gradle.kts') -Raw
-if ($gradle -notmatch 'packageVersion\s*=\s*"([^"]+)"') { throw "packageVersionが読めません / cannot read packageVersion" }
+$toml = Get-Content (Join-Path $root 'crates\maid-cafe-desktop\Cargo.toml') -Raw
+if ($toml -notmatch '(?m)^version\s*=\s*"([^"]+)"') { throw "versionが読めません / cannot read version" }
 $version = $Matches[1]
 
 Push-Location $root
 try {
-    & "$root\gradlew.bat" ':core:test' ':desktop:createDistributable' '--console=plain'
-    if ($LASTEXITCODE -ne 0) { throw "ビルド/テスト失敗 / build or tests failed" }
+    cargo test -p maid-cafe-core -p maid-cafe-desktop
+    if ($LASTEXITCODE -ne 0) { throw "テスト失敗 / tests failed" }
+    cargo build --release -p maid-cafe-desktop
+    if ($LASTEXITCODE -ne 0) { throw "ビルド失敗 / build failed" }
 } finally { Pop-Location }
 
-$appDir = Join-Path $root 'desktop\build\compose\binaries\main\app\maid-cafe-se'
+# 配布物のフォルダ(exe+アイコン)。exeは単体で動く(音源は埋め込み済み、JREなど不要)
+$appDir = Join-Path $root 'installer\build\app'
+Remove-Item $appDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $appDir | Out-Null
 $exe = Join-Path $appDir 'maid-cafe-se.exe'
-if (-not (Test-Path $exe)) { throw "配布物ができていません / distributable not produced: $exe" }
+Copy-Item (Join-Path $root 'target\release\maid-cafe-se.exe') $exe
+Copy-Item (Join-Path $root 'crates\maid-cafe-desktop\assets\maid-cafe-se.ico') $appDir
 
-# 配布物の自己診断(Windows音声→加工→WAV書き出し)。日本語音声が無いPCではスキップ/失敗するので -SkipSelfTest で省ける
+# 配布物の自己診断(Windows音声→加工→WAV書き出し)。日本語音声が無いPCでは失敗するので -SkipSelfTest で省ける
 if (-not $SkipSelfTest) {
-    $st = Join-Path $root 'desktop\build\selftest-build'
+    $st = Join-Path $root 'installer\build\selftest'
     Remove-Item $st -Recurse -Force -ErrorAction SilentlyContinue
-    $p = Start-Process $exe -ArgumentList '--selftest', $st -PassThru -Wait
-    if ($p.ExitCode -ne 0) { Get-Content (Join-Path $st 'report.txt') -ErrorAction SilentlyContinue; throw "自己診断に失敗 / selftest failed (exit $($p.ExitCode))" }
+    $p = Start-Process $exe -ArgumentList '--selftest', "`"$st`"" -PassThru -Wait
+    Get-Content (Join-Path $st 'report.txt') -ErrorAction SilentlyContinue
+    if ($p.ExitCode -ne 0) { throw "自己診断に失敗 / selftest failed (exit $($p.ExitCode))" }
     Write-Host "selftest OK"
 }
 

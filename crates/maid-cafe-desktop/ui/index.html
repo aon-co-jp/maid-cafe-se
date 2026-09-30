@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>maid-cafe-se</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>maid-cafe-se <small id="ver"></small></h1>
+  <div id="next" class="next">読み込み中…</div>
+  <div class="actions">
+    <button id="add" class="primary">＋ アラームを追加</button>
+    <button id="stop" class="danger" hidden>■ 止める</button>
+    <button id="open-settings">設定</button>
+  </div>
+</header>
+<main>
+  <ul id="alarms" class="alarms"></ul>
+  <p id="empty" class="muted" hidden>アラームはまだありません。「＋ アラームを追加」から作ってください。</p>
+</main>
+
+<dialog id="editor">
+  <form method="dialog" id="form">
+    <h2 id="editor-title">アラーム</h2>
+    <label>名前 <input id="f-label" maxlength="100" placeholder="例: 起床"></label>
+    <div class="row">
+      <label>時刻 <input id="f-time" type="time" required value="07:00"></label>
+      <label>繰り返し
+        <select id="f-rec">
+          <option value="daily">毎日</option>
+          <option value="weekdays">平日</option>
+          <option value="weekdays_skip">平日(祝日を除く)</option>
+          <option value="weekends">土日祝</option>
+          <option value="dow">曜日を選ぶ</option>
+          <option value="nth">第N週の曜日</option>
+          <option value="every">N週ごと</option>
+        </select>
+      </label>
+    </div>
+    <div id="rec-dow" class="row" hidden></div>
+    <div id="rec-nth" class="row" hidden>
+      <label>第 <select id="f-nth"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option value="-1">最終</option></select></label>
+      <label>曜日 <select id="f-nth-day"></select></label>
+    </div>
+    <div id="rec-every" class="row" hidden>
+      <label>何週ごと <input id="f-interval" type="number" min="1" max="52" value="2"></label>
+      <label>基準日 <input id="f-anchor" type="date"></label>
+    </div>
+    <div class="row">
+      <label>鳴らし方
+        <select id="f-kind"><option value="SOUND">音を鳴らす</option><option value="SPEECH">読み上げる</option></select>
+      </label>
+      <label id="l-sound">音 <select id="f-sound"></select></label>
+      <label>声
+        <select id="f-voice"><option value="MAID">メイドカフェ風</option><option value="DEEP_MALE">太くて低い男性</option></select>
+      </label>
+    </div>
+    <label id="l-text">読み上げる文章 <input id="f-text" maxlength="500" placeholder="空欄なら名前を読み上げます"></label>
+    <label class="check"><input id="f-harmony" type="checkbox"> メイドちゃん2人でハモる</label>
+    <label class="check"><input id="f-pre" type="checkbox"> 予告する <input id="f-pre-min" type="number" min="1" max="1440" value="30"> 分前</label>
+
+    <fieldset>
+      <legend>メイドのセリフ(指定時刻)—番号の順に喋ります</legend>
+      <div id="phrases" class="phrases"></div>
+    </fieldset>
+    <fieldset id="pre-set">
+      <legend>メイドのセリフ(予告時)</legend>
+      <div id="pre-phrases" class="phrases"></div>
+    </fieldset>
+
+    <p id="form-error" class="error" role="alert"></p>
+    <div class="actions">
+      <button type="button" id="test">▶ テスト再生</button>
+      <span class="spacer"></span>
+      <button type="button" id="cancel">キャンセル</button>
+      <button type="submit" id="save" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2>設定</h2>
+    <label>メイドカフェ風の声の元にするWindows音声 <select id="s-maid"></select></label>
+    <label>太くて低い男性の声の元にするWindows音声 <select id="s-male"></select></label>
+    <p class="muted" id="voice-note"></p>
+    <label class="check"><input id="s-auto" type="checkbox"> Windowsの起動時に、タスクトレイへ常駐して起動する</label>
+    <p id="settings-error" class="error" role="alert"></p>
+    <div class="actions"><span class="spacer"></span><button type="button" id="settings-close">閉じる</button></div>
+  </form>
+</dialog>
+<script src="/app.js"></script>
+</body>
+</html>

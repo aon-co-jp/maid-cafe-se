@@ -1,0 +1,35 @@
+:root{--bg:#fff8fb;--fg:#3b2a33;--muted:#8a7480;--card:#fff;--line:#ecd6df;--accent:#d6457f;--accent-fg:#fff;--danger:#c0392b;--err:#b00020}
+[hidden]{display:none !important}
+@media (prefers-color-scheme:dark){:root{--bg:#1d1519;--fg:#f3e6ec;--muted:#b39aa6;--card:#2a1e24;--line:#43323b;--accent:#ee6a9f;--accent-fg:#1d1519;--danger:#ef7b6d;--err:#ff8a9b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 "Yu Gothic UI","Meiryo UI",system-ui,sans-serif}
+header{padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
+h1{margin:0 0 4px;font-size:20px}h1 small{font-weight:400;color:var(--muted);font-size:12px}
+.next{color:var(--muted);margin-bottom:10px}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.spacer{flex:1}
+main{max-width:760px;margin:0 auto;padding:16px 20px 60px}
+button,select,input{font:inherit;color:inherit}
+button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 14px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.danger{color:var(--danger);border-color:var(--danger)}
+input,select{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:5px 8px}
+.alarms{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.alarm{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center}
+.alarm.off{opacity:.55}
+.alarm .time{font-size:26px;font-variant-numeric:tabular-nums;min-width:4.2em}
+.alarm .body{flex:1;min-width:0}.alarm .title{font-weight:600}.alarm .sub{color:var(--muted);font-size:13px}
+.muted{color:var(--muted)}.error{color:var(--err);min-height:1.4em;margin:8px 0}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--fg);width:min(640px,94vw);padding:18px 20px}
+dialog::backdrop{background:#0006}
+dialog label{display:block;margin:8px 0}
+dialog label input:not([type=checkbox]),dialog label select{display:block;width:100%;margin-top:3px}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>label{flex:1;min-width:140px}
+label.check{display:flex;gap:8px;align-items:center}label.check input{width:auto;margin:0;display:inline-block}
+label.check input[type=number]{width:5em}
+fieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}
+.phrases{display:grid;gap:6px}
+.phrase{display:flex;gap:8px;align-items:center}
+.phrase input[type=number]{width:4.2em}.phrase .n{visibility:hidden}.phrase.on .n{visibility:visible}
+.dow{display:flex;gap:10px;flex-wrap:wrap}.dow label{display:flex;gap:4px;align-items:center;margin:0}
+.dow input{width:auto;display:inline-block;margin:0}

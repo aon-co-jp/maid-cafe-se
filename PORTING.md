@@ -60,6 +60,8 @@
 
 ユーザー指示「アプリ本体もRust+RPoemで作り直して、早く」。現状のKotlin実装(`core`/`app`/`desktop`)を、テストを仕様として段階的にRustへ置き換える。
 
+**進捗(2026-09-30)**: 1(core)と2(Windows版)は完了。Windows版は`crates/maid-cafe-desktop`(v0.5.0、RPoemのローカルWebサーバー+画面+スケジューラ+SAPI+トレイ、テスト: 単体29+HTTP結合6、`clippy -D warnings`クリーン、実機で`--selftest`・インストール/自動起動/アンインストールを確認、Kotlinの`desktop/`は削除済み)。設計判断: 画面はネイティブUIではなくRPoemのローカルWeb UI(相談事項の暫定決定。`127.0.0.1`限定+Host/Origin検査+専用ヘッダ)、保存形式はKotlin版と同一(旧データをそのまま読める)。未検証: 合成音の主観的な聴こえ(数値のみ)、Edge無し環境の既定ブラウザ起動、スリープ復帰をまたいだ発火。3(Android)は未着手→次の作業。
+
 1. `core`のRust移植(`crates/`): 繰り返しルール・日本の祝日・Planner・Codec・セリフ番号・VoiceDsp(WSOLA/リサンプラ/EQ)。Kotlin側の`core`テスト75件と同じ検証をRustのテストで再現し、同じ入力で同じ出力になることを確認する。
 2. Windows版をRustへ: トレイ常駐・スケジューラ・SAPI(WinRT/COM)・音声出力。UIの方式(RPoemのローカルWeb UIか、ネイティブUIか)は要相談。
 3. Android版をRustへ: `core`をJNI/UniFFI経由で共有し、UI・アラーム登録・TTSだけ薄いKotlin(またはRustのAndroidバインディング)にする。

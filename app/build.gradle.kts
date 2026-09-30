@@ -53,7 +53,7 @@ android {
     buildFeatures {
         compose = true
     }
-    // Android版とWindows版(desktop)で共有する画面部品
+    // Android版の画面部品(以前はWindows版のKotlin版と共有していた)
     sourceSets.getByName("main").java.srcDir("../shared-ui/src")
 }
 

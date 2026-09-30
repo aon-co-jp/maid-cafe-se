@@ -1,0 +1,36 @@
+[package]
+name = "maid-cafe-desktop"
+version = "0.5.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "maid-cafe-se Windows版(Rust)。RPoemのローカルサーバー+Web画面、スケジューラ、Windows音声(SAPI)、タスクトレイ。"
+build = "build.rs"
+
+[lib]
+name = "maid_cafe_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "maid-cafe-se"
+path = "src/main.rs"
+
+[dependencies]
+http-body-util = "0.1"
+bytes = "1.12.1"
+hyper = "1"
+maid-cafe-core = { path = "../maid-cafe-core" }
+chrono = { workspace = true, features = ["clock"] }
+open-runo-poem-compat = { version = "0.1.0", path = "../../../RPoem/crates/open-runo-poem-compat" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tao = "0.36.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "time", "sync", "process"] }
+tray-icon = "0.24.2"
+windows-sys = { version = "0.61.2", features = ["Win32_Media_Audio", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Console"] }
+
+[dev-dependencies]
+ureq = "3.2.1"
+
+[build-dependencies]
+winresource = "0.1"

@@ -17,4 +17,3 @@ dependencyResolutionManagement {
 rootProject.name = "maid-cafe-se"
 include(":core")
 include(":app")
-include(":desktop")

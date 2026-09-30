@@ -40,18 +40,27 @@ Androidスマホを、メイドカフェ風(または低い男性の声)の専�
 - 音源は`tools/gen-sounds`(Rust。旧Python版とバイト単位で同一の出力)で数式生成(外部音源なし、CC0)
 - エミュレータ実機検証済み: アラーム発火(Doze考慮の`setAlarmClock`)、TTS読み上げ、音の再生、カレンダー予定の30分前予告、次回の自動再登録
 
-## Windows版(v0.4.0〜)
+## Windows版(v0.5.0〜: Rust + RPoem製)
 
-Android版と同じ`core`(繰り返しルール・祝日・音声処理)を共有するデスクトップ版。`maid-cafe-se-installer.exe`で入る。
-タスクトレイ常駐、Windows起動時の自動起動(任意)、読み上げはWindows標準の日本語音声(SAPI、Microsoft Haruka等)を同じ加工処理(声質・ハモり・セリフごとの間)に通して鳴らす。
-Googleカレンダー連動はAndroid版のみ(Windows版は未対応)。
+`maid-cafe-se-installer.exe`(約1.5MB、Java不要)で入る。v0.4.0まではKotlin(Compose Desktop)製だったが、v0.5.0で**Rustに置き換えた**(`crates/maid-cafe-desktop`)。
+アラームの保存形式(`%APPDATA%\maid-cafe-se\alarms.txt`・`settings.properties`)は旧版と同じなので、旧版の設定はそのまま読める。
+
+- 構成: 1つのexe。**RPoem(Poem互換)のローカルWebサーバー**(`127.0.0.1`のみ)が画面(HTML/JS)とJSON APIを出し、スケジューラ・タスクトレイ(`tray-icon`)・Windows標準の日本語音声(SAPI、Microsoft Haruka等)をつなぐ。画面はEdgeのアプリ表示(なければ既定のブラウザ)で開く。
+- 画面: アラームの追加/編集/削除/有効切替、繰り返し(毎日・平日・祝日除く平日・土日祝・曜日・第N週・N週ごと)、音/読み上げ、メイド風/低い男性、ハモり、予告(何分前)、**メイドのセリフと喋る順の番号**(重複しない自動振り直しはcoreのルールそのまま)、テスト再生、声の元になるWindows音声の選択、Windows起動時の自動起動。
+- 音声の後処理(声の太さの独立制御・ハモり・音量統一)はRPoemの共有クレート`open-runo-voice`(`crates/maid-cafe-core`経由)。合成は区切りごとにSAPI→加工→間を挟んで連結。
+- 安全対策: `127.0.0.1`にだけ待ち受け、`Host`/`Origin`の検査(DNSリバインディング対策)、POSTには専用ヘッダ必須(他サイトからの送信を防ぐ)、本文は64KBまで。二重起動は1つにまとめ、2つ目は起動済みの画面を開く。
+- コマンドライン: `--minimized`(画面なしでトレイ常駐。自動起動用)、`--no-tray`、`--autostart on|off`、`--selftest [出力先] [--play]`(読み上げの自己診断。`report.txt`にも結果を残す)。
+- Googleカレンダー連動はAndroid版のみ(Windows版は未対応)。
 
 ## ビルド
 
 ```
-gradlew :core:test          # 純Kotlinのテスト
-gradlew :app:assembleDebug  # APK
+cargo test --workspace                  # Rust: core(祝日・繰り返し・セリフ番号・保存形式)、Windows版(API・スケジューラ・HTTP結合)
+cargo clippy --workspace --all-targets -- -D warnings
+gradlew :core:test :app:assembleDebug   # Android(Kotlin、Rust化の途中)
 ```
+
+Rustのビルドには、兄弟ディレクトリに`RPoem`(`F:\RPoem`)が必要(パス依存。`open-english`などと同じ)。Windowsインストーラーは`installer\build-windows.ps1`。
 
 ## 既知の制約
 

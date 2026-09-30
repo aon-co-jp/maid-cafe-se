@@ -134,7 +134,7 @@ fn codec_round_trip_all_recurrences() {
 #[test]
 fn codec_nullable_fields_and_broken_lines() {
     let e = plain(AlarmKind::Sound);
-    let text = codec::encode_all(&[e.clone()]) + "\nこわれた行\nid=x&label=y";
+    let text = codec::encode_all(std::slice::from_ref(&e)) + "\nこわれた行\nid=x&label=y";
     assert_eq!(vec![e], codec::decode_all(&text));
     assert!(codec::decode_all("").is_empty());
 }

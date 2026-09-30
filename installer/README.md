@@ -14,7 +14,7 @@ Build scripts and install instructions for maid-cafe-se. **Binaries are not comm
 
 | プラットフォーム / Platform | ファイル / File | 内容 / Notes |
 |---|---|---|
-| **Windows** 10/11 (x64) | `maid-cafe-se-installer.exe` | インストーラー(実行環境同梱、Java不要)。管理者権限不要でユーザー領域にインストール |
+| **Windows** 10/11 (x64) | `maid-cafe-se-installer.exe` | インストーラー(Rust製の単体exe、Java不要)。管理者権限不要でユーザー領域にインストール |
 | **Android** 8.0+ | `maid-cafe-se_<version>_android.apk` | 署名つきAPK(サイドロード)。PCから入れるスクリプトも用意 |
 | 検証 / Verify | `SHA256SUMS.txt` | 各ファイルのSHA-256 |
 
@@ -25,7 +25,7 @@ Build scripts and install instructions for maid-cafe-se. **Binaries are not comm
      その場合は **「詳細情報」→「実行」** を選んでください。
    - 無人インストール: `maid-cafe-se-installer.exe /S`(インストール先を変える: `/D=C:\任意のフォルダ`、`/D=`は必ず最後に)。
 2. スタートメニュー/デスクトップの「maid-cafe-se」から起動します。ウィンドウを閉じても**タスクトレイに常駐**して、時刻になると鳴ります(完全に止めるにはトレイのアイコンから「終了」)。
-3. Windowsの起動時に自動で起動したい場合は、アプリ内のチェックボックスをオンにします。
+3. Windowsの起動時に自動で起動したい場合は、画面右上の「設定」で、起動時の自動起動をオンにします。
 4. 読み上げには **日本語のWindows音声** が必要です(標準の「Microsoft Haruka」など)。無い場合は
    「設定 → 時刻と言語 → 言語と地域」で日本語を追加し、音声を入れてください。
 5. アンインストールは「設定 → アプリ」から。アラームなどの設定(`%APPDATA%\maid-cafe-se`)はあなたのデータなので**残ります**。
@@ -55,7 +55,8 @@ Build scripts and install instructions for maid-cafe-se. **Binaries are not comm
 | スクリプト | 役割 |
 |---|---|
 | `build-release.ps1` | Android版の署名つきAPKを作る(`installer\dist\maid-cafe-se_<version>_android.apk`)。鍵情報は `F:\maid-cafe-se-keystore.txt`(**リポジトリの外**、`-KeystoreInfo`で変更可)から環境変数経由でGradleへ渡し、画面・ログに出さない。`apksigner verify`で検証 |
-| `build-windows.ps1` | Windows版を`jpackage`で実行環境つきにまとめ(自己診断 `--selftest` を実行)、NSISで `maid-cafe-se-installer.exe` を作る。要: JDK 17(jpackage入り)、NSIS 3 |
+| `build-windows.ps1` | Windows版(Rust、`crates/maid-cafe-desktop`)のテスト→リリースビルド→自己診断 `--selftest` を実行し、NSISで `maid-cafe-se-installer.exe` を作る(約1.5MB、JRE不要)。要: Rust、NSIS 3 |
+| `make-icon.ps1` | アプリのアイコン(`crates/maid-cafe-desktop/assets/maid-cafe-se.ico`)を生成する。通常は不要(生成済みをコミット) |
 | `windows/installer.nsi` | NSISのインストーラー定義(ユーザー領域へインストール、ショートカット、アンインストーラー、日本語/英語) |
 | `install-android.ps1` / `.bat` | PCから端末へAPKを入れるスクリプト(上記 方法B) |
 

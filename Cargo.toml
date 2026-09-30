@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/maid-cafe-core", "crates/maid-cafe-enhance", "tools/gen-sounds"]
+members = ["crates/maid-cafe-core", "crates/maid-cafe-enhance", "crates/maid-cafe-desktop", "tools/gen-sounds"]
 resolver = "2"
 
 [workspace.package]

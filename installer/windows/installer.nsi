@@ -1,7 +1,7 @@
 ﻿; maid-cafe-se Windows installer (NSIS 3, Unicode). Builds maid-cafe-se-installer.exe.
 ;
 ; ビルド: installer\build-windows.ps1 が次のように呼ぶ / Called by installer\build-windows.ps1 as:
-;   makensis /DVERSION=0.4.0 /DAPPDIR=<jpackage app-image dir> /DOUTFILE=<installer.exe> installer.nsi
+;   makensis /DVERSION=0.5.0 /DAPPDIR=<folder with maid-cafe-se.exe and .ico> /DOUTFILE=<installer.exe> installer.nsi
 ;
 ; 管理者権限は不要(ユーザー領域 %LOCALAPPDATA%\Programs\maid-cafe-se にインストール)。無人インストール: maid-cafe-se-installer.exe /S
 ; No admin rights needed (installs per-user). Silent install: maid-cafe-se-installer.exe /S
@@ -86,8 +86,9 @@ Section "Uninstall"
   Pop $0
   Sleep 500
 
-  ; アプリが作ったスタートアップ(自動起動)ショートカットも消す。アラーム設定(%APPDATA%\maid-cafe-se)はユーザーのデータなので残す。
+  ; アプリの自動起動の設定(v0.5.0以降はレジストリのRunキー、旧版はスタートアップのショートカット)も消す。アラーム設定(%APPDATA%\maid-cafe-se)はユーザーのデータなので残す。
   Delete "$SMSTARTUP\${APPNAME}.lnk"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APPNAME}"
   Delete "$DESKTOP\${APPNAME}.lnk"
   RMDir /r "$SMPROGRAMS\${APPNAME}"
   RMDir /r "$INSTDIR"
