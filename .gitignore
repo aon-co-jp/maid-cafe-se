@@ -10,3 +10,5 @@ installer/dist/
 tools/gen-sounds/target/
 /target/
 app/src/main/jniLibs/
+installer/windows/*.exe
+installer/android/mobile/*.apk

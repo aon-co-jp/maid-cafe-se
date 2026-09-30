@@ -1,0 +1,80 @@
+# リリースを公開したら自動で:
+#  1. 最新の exe と APK だけを、`installer` ブランチ(1コミット)に置く。毎回「作り直して」強制pushするので、古い版はGitから参照されなくなり、
+#     リポジトリの容量は増え続けない(常に最新の1組ぶん)。
+#  2. 古いリリース(とそのタグ)を、新しい順に KEEP 件だけ残して削除する。
+# 署名鍵を持たないCIではビルドしない。ビルド(installer\build-*.ps1)と`gh release create`は、これまでどおり手元で行う。
+name: installer-housekeeping
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: "残すリリースの件数(新しい順)"
+        default: "3"
+      prune:
+        description: "古いリリースを削除する"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: installer-housekeeping
+  cancel-in-progress: false
+
+jobs:
+  housekeeping:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KEEP: ${{ inputs.keep || '3' }}
+      PRUNE: ${{ github.event_name == 'release' && 'true' || inputs.prune }}
+    steps:
+      - name: 最新の exe と APK を installer ブランチへ(1コミットで作り直す)
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.release.tag_name }}"
+          if [ -z "$tag" ]; then tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName); fi
+          echo "tag=$tag"
+          mkdir -p out tree/windows tree/android/mobile
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir out \
+            --pattern 'maid-cafe-se-installer.exe' --pattern 'maid-cafe-se_*_android.apk'
+          cp out/maid-cafe-se-installer.exe tree/windows/
+          cp out/maid-cafe-se_*_android.apk tree/android/mobile/
+          (cd tree && sha256sum windows/*.exe android/mobile/*.apk > SHA256SUMS.txt)
+          {
+            echo "# installer ブランチ"
+            echo
+            echo "最新リリース **$tag** の、インストーラーだけを置くブランチです(古い版は自動で消えます)。"
+            echo "コードは [master](https://github.com/$GITHUB_REPOSITORY/tree/master) にあります。"
+            echo
+            echo "| ファイル | 内容 |"
+            echo "|---|---|"
+            echo "| [windows/maid-cafe-se-installer.exe](windows/) | Windows 10/11 |"
+            echo "| [android/mobile/](android/mobile/) | Android スマホ用 APK |"
+            echo
+            echo "SHA-256 は [SHA256SUMS.txt](SHA256SUMS.txt)。"
+          } > tree/README.md
+          cd tree
+          git init -q -b installer
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "installer: $tag"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin installer
+
+      - name: 古いリリースとタグを削除(新しい順に KEEP 件だけ残す)
+        if: env.PRUNE == 'true'
+        run: |
+          set -euo pipefail
+          case "$KEEP" in ''|*[!0-9]*) echo "KEEPが不正: $KEEP"; exit 1;; esac
+          if [ "$KEEP" -lt 1 ]; then echo "KEEPは1以上"; exit 1; fi
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName,createdAt \
+            -q 'sort_by(.createdAt) | reverse | .[].tagName' | tail -n +$((KEEP + 1)) | while read -r t; do
+              echo "delete $t"
+              gh release delete "$t" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+            done

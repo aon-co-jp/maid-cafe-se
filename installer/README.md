@@ -71,14 +71,27 @@ powershell -ExecutionPolicy Bypass -File installer\build-windows.ps1   # Windows
 ## フォルダの構成 / Layout
 
 ```
-installer/
-├── windows/maid-cafe-se-installer.exe          Windows版インストーラー(完成品、約1.5MB)
+installer/                                      (master: スクリプトと説明だけ。容量を増やさないため、バイナリは入れない)
+├── windows/                                    手元でビルドしたexeの出力先(コミット対象外)+README
 ├── android/
-│   ├── mobile/maid-cafe-se_<version>_android.apk   スマホ用のインストーラー(署名つきAPK、約9MB)
+│   ├── mobile/                                 手元でビルドしたAPKの出力先(コミット対象外)+README
 │   └── install-android.ps1 / .bat              PCからUSBで入れるスクリプト
-├── nsis-installer.nsi                          Windowsインストーラーの設計図(これをmakensisでexeにする)
+├── nsis-installer.nsi                          Windowsインストーラーの設計図(makensisでexeにする)
 ├── build-windows.ps1 / build-release.ps1 / make-icon.ps1
 └── dist/                                       ビルドの出力(git管理外。Releasesへ上げる元)
 ```
 
-`windows/`と`android/mobile/`の完成品は、リリースのたびに最新版へ置き換える(Gitの履歴には古い版が残るので、クローンは少しずつ重くなる。`git clone --depth 1`で軽くできる)。
+## 最新のインストーラーの置き場 / Where to get the latest
+
+- **Windows**: <https://github.com/aon-co-jp/maid-cafe-se/releases/latest/download/maid-cafe-se-installer.exe>
+- **Android**: [Releases](https://github.com/aon-co-jp/maid-cafe-se/releases/latest) の `maid-cafe-se_<version>_android.apk`
+- **フォルダとして見る**: [`installer` ブランチ](https://github.com/aon-co-jp/maid-cafe-se/tree/installer)(`windows/`と`android/mobile/`に、最新版だけが入っている)
+
+## 自動で整理する仕組み / Housekeeping
+
+リリースを公開すると、GitHub Actions(`.github/workflows/installer-housekeeping.yml`)が自動で次を行います。
+
+1. 最新リリースの exe と APK だけを、`installer` ブランチに**1コミットで作り直して**強制pushする。古い版はGitから参照されなくなるので、リポジトリの容量は増え続けません(常に最新の1組ぶん)。
+2. 古いリリースとそのタグを、新しい順に**3件だけ残して**削除する(件数は、手動実行の`keep`で変えられる)。
+
+ビルドと署名(鍵はリポジトリの外)は、これまでどおり手元で行い、`gh release create`でリリースを公開します。
