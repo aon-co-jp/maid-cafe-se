@@ -50,20 +50,22 @@ jobs:
           rel="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}"
           # フォルダ画面でファイル名を押してもプレビューが開くだけなので、ダウンロードが始まるリンクを各フォルダのREADMEに載せる
           {
-            echo "# Windows 用インストーラー ($tag)"
+            echo "# Windows 用インストーラー / Windows installer ($tag)"
             echo
-            echo "**[⬇ maid-cafe-se-installer.exe をダウンロード](${raw}/windows/maid-cafe-se-installer.exe)**"
+            echo "**[⬇ ダウンロード / Download — maid-cafe-se-installer.exe](${raw}/windows/maid-cafe-se-installer.exe)**"
             echo
-            echo "(同じファイル: [Releases](${rel}/maid-cafe-se-installer.exe))"
+            echo "(同じファイル / Same file: [Releases](${rel}/maid-cafe-se-installer.exe))"
           } > tree/windows/README.md
           {
-            echo "# Android スマホ用インストーラー ($tag)"
+            echo "# Android スマホ用インストーラー / Android installer ($tag)"
             echo
-            echo "**[⬇ ${apk} をダウンロード](${raw}/android/mobile/${apk})**"
+            echo "**[⬇ ダウンロード / Download — ${apk}](${raw}/android/mobile/${apk})**"
             echo
-            echo "(同じファイル: [Releases](${rel}/${apk}))"
+            echo "(同じファイル / Same file: [Releases](${rel}/${apk}))"
             echo
             echo "端末で開き、「提供元不明のアプリ」の許可を求められたら、そのブラウザ/ファイラーに許可してください。"
+            echo
+            echo "Open it on the phone. If asked about installing from unknown sources, allow it for the browser or file manager you used."
           } > tree/android/mobile/README.md
           {
             echo "# installer ブランチ"
@@ -73,8 +75,8 @@ jobs:
             echo
             echo "| ファイル | 内容 |"
             echo "|---|---|"
-            echo "| [⬇ maid-cafe-se-installer.exe](${raw}/windows/maid-cafe-se-installer.exe) | Windows 10/11 |"
-            echo "| [⬇ ${apk}](${raw}/android/mobile/${apk}) | Android スマホ用 APK |"
+            echo "| [⬇ ダウンロード / Download — maid-cafe-se-installer.exe](${raw}/windows/maid-cafe-se-installer.exe) | Windows 10/11 |"
+            echo "| [⬇ ダウンロード / Download — ${apk}](${raw}/android/mobile/${apk}) | Android スマホ用 APK / Android phones |"
             echo
             echo "SHA-256 は [SHA256SUMS.txt](SHA256SUMS.txt)。"
           } > tree/README.md
