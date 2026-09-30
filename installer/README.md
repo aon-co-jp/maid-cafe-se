@@ -1,7 +1,7 @@
 # installer/
 
 maid-cafe-se のインストーラー(配布物)のビルド元と、入手・インストール方法。
-**バイナリ自体はこのフォルダにコミットしません**(`dist/`はgit管理外)。配布の正本は
+**Windows版のインストーラー(約1.5MB)だけは`windows/`にコミットします**(フォルダから直接ダウンロードできるように。APKなど大きいものは`dist/`=git管理外)。配布の正本は
 [GitHub Releases](https://github.com/aon-co-jp/maid-cafe-se/releases) です
 (バイナリをgitに入れるとリポジトリが肥大化し続け、`git clone`が遅くなるため)。
 
@@ -15,7 +15,7 @@ Build scripts and install instructions for maid-cafe-se. **Binaries are not comm
 | プラットフォーム / Platform | ファイル / File | 内容 / Notes |
 |---|---|---|
 | **Windows** 10/11 (x64) | `maid-cafe-se-installer.exe` | インストーラー(Rust製の単体exe、Java不要)。管理者権限不要でユーザー領域にインストール |
-| **Android** 8.0+ | `maid-cafe-se_<version>_android.apk` | 署名つきAPK(サイドロード)。PCから入れるスクリプトも用意 |
+| **Android** 8.0+ | `maid-cafe-se_<version>_android.apk`(フォルダ: `android/mobile/`) | 署名つきAPK(サイドロード)。PCから入れるスクリプトも用意 |
 | 検証 / Verify | `SHA256SUMS.txt` | 各ファイルのSHA-256 |
 
 ## Windows版のインストール / Install on Windows
@@ -38,10 +38,10 @@ Build scripts and install instructions for maid-cafe-se. **Binaries are not comm
 
 ### 方法B: PCから(USB接続)
 1. 端末の「開発者向けオプション」→「USBデバッグ」をオンにしてPCにつなぎ、端末に出る許可ダイアログを承認。
-2. `install-android.bat` をダブルクリック(APKがこのフォルダに無ければ、最新リリースを自動でダウンロードしてSHA-256を検証)。
+2. `android/install-android.bat` をダブルクリック(APKが`android/mobile/`に無ければ、最新リリースを自動でダウンロードしてSHA-256を検証)。
    - 要: [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)(`adb`)。
    - 旧バージョン(**v0.3.1以前のデバッグ署名版**)が入っていると署名が違うので上書きできません。
-     設定とアラームが消えてよければ `install-android.bat -ReplaceOldSignature` を使ってください。
+     設定とアラームが消えてよければ `android/install-android.bat -ReplaceOldSignature` を使ってください。
 
 署名の証明書 SHA-256 / Signing certificate SHA-256:
 `104cd63b22a418b03d72a62708d529399a050bf948f5ef3d11e0a4dfd4ea12af`
@@ -57,8 +57,9 @@ Build scripts and install instructions for maid-cafe-se. **Binaries are not comm
 | `build-release.ps1` | Android版の署名つきAPKを作る(`installer\dist\maid-cafe-se_<version>_android.apk`)。鍵情報は `F:\maid-cafe-se-keystore.txt`(**リポジトリの外**、`-KeystoreInfo`で変更可)から環境変数経由でGradleへ渡し、画面・ログに出さない。`apksigner verify`で検証 |
 | `build-windows.ps1` | Windows版(Rust、`crates/maid-cafe-desktop`)のテスト→リリースビルド→自己診断 `--selftest` を実行し、NSISで `maid-cafe-se-installer.exe` を作る(約1.5MB、JRE不要)。要: Rust、NSIS 3 |
 | `make-icon.ps1` | アプリのアイコン(`crates/maid-cafe-desktop/assets/maid-cafe-se.ico`)を生成する。通常は不要(生成済みをコミット) |
-| `windows/installer.nsi` | NSISのインストーラー定義(ユーザー領域へインストール、ショートカット、アンインストーラー、日本語/英語) |
-| `install-android.ps1` / `.bat` | PCから端末へAPKを入れるスクリプト(上記 方法B) |
+| `nsis-installer.nsi` | NSISのインストーラー定義=exeを作るための設計図(ユーザー領域へインストール、ショートカット、アンインストーラー、日本語/英語) |
+| `windows/maid-cafe-se-installer.exe` | 完成したWindows版インストーラー(約1.5MB)。フォルダからそのままダウンロードできる。最新版は常にここと[Releases](https://github.com/aon-co-jp/maid-cafe-se/releases)に同じものを置く |
+| `android/install-android.ps1` / `.bat` | PCから端末へAPKを入れるスクリプト(上記 方法B) |
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File installer\build-release.ps1   # Android
@@ -66,3 +67,18 @@ powershell -ExecutionPolicy Bypass -File installer\build-windows.ps1   # Windows
 ```
 
 **署名鍵について**: 鍵(`F:\maid-cafe-se-release.jks`)を失うと、以後のAndroid版アップデートが既存のインストールに上書きできなくなります。バックアップを取り、絶対にコミットしないでください。
+
+## フォルダの構成 / Layout
+
+```
+installer/
+├── windows/maid-cafe-se-installer.exe          Windows版インストーラー(完成品、約1.5MB)
+├── android/
+│   ├── mobile/maid-cafe-se_<version>_android.apk   スマホ用のインストーラー(署名つきAPK、約9MB)
+│   └── install-android.ps1 / .bat              PCからUSBで入れるスクリプト
+├── nsis-installer.nsi                          Windowsインストーラーの設計図(これをmakensisでexeにする)
+├── build-windows.ps1 / build-release.ps1 / make-icon.ps1
+└── dist/                                       ビルドの出力(git管理外。Releasesへ上げる元)
+```
+
+`windows/`と`android/mobile/`の完成品は、リリースのたびに最新版へ置き換える(Gitの履歴には古い版が残るので、クローンは少しずつ重くなる。`git clone --depth 1`で軽くできる)。

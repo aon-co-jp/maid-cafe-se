@@ -48,9 +48,12 @@ if (-not $SkipSelfTest) {
 $dist = Join-Path $PSScriptRoot 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
 $out = Join-Path $dist 'maid-cafe-se-installer.exe'
-& $Makensis /V2 "/DVERSION=$version" "/DAPPDIR=$appDir" "/DOUTFILE=$out" (Join-Path $PSScriptRoot 'windows\installer.nsi')
+$winDir = Join-Path $PSScriptRoot 'windows'   # 完成品のexe(約1.5MB)は、ここにもコミットして、GitHubのフォルダから直接ダウンロードできるようにする
+& $Makensis /V2 "/DVERSION=$version" "/DAPPDIR=$appDir" "/DOUTFILE=$out" (Join-Path $PSScriptRoot 'nsis-installer.nsi')
 if ($LASTEXITCODE -ne 0) { throw "makensis失敗 / makensis failed" }
 
+New-Item -ItemType Directory -Force $winDir | Out-Null
+Copy-Item $out (Join-Path $winDir 'maid-cafe-se-installer.exe') -Force
 $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
 $sums = Join-Path $dist 'SHA256SUMS.txt'
 $line = "$hash  maid-cafe-se-installer.exe"

@@ -49,6 +49,11 @@ $dist = Join-Path $PSScriptRoot 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
 $out = Join-Path $dist "maid-cafe-se_${version}_android.apk"
 Copy-Item $built $out -Force
+# スマホ用のAPKは android\mobile にもコミットする(フォルダから直接ダウンロードできるように)。古い版は置き換える
+$mobile = Join-Path $PSScriptRoot "android\mobile"
+New-Item -ItemType Directory -Force $mobile | Out-Null
+Get-ChildItem $mobile -Filter "maid-cafe-se_*_android.apk" -ErrorAction SilentlyContinue | Remove-Item -Force
+Copy-Item $built (Join-Path $mobile "maid-cafe-se_${version}_android.apk") -Force
 
 # 署名の検証(apksignerがあれば)
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }

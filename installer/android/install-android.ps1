@@ -2,7 +2,7 @@
 # Installs maid-cafe-se onto a USB-connected Android phone from this PC.
 #
 # 使い方 / Usage (端末の「開発者向けオプション」→「USBデバッグ」をオンにして接続 / enable USB debugging and connect):
-#   install-android.bat            ... このフォルダ(またはdist)のAPK、無ければ最新リリースを取得
+#   install-android.bat            ... mobile/(またはこのフォルダ・dist)のAPK、無ければ最新リリースを取得
 #   install-android.bat -Apk <path> ... 指定のAPKを入れる
 #   install-android.bat -Serial <id> ... 複数台つながっているとき、対象の端末
 #   install-android.bat -ReplaceOldSignature ... 旧デバッグ署名版が入っていて競合するとき、いったんアンインストールして入れ直す(設定・アラームは消える)
@@ -15,9 +15,9 @@ $ErrorActionPreference = "Stop"
 $package = "tokyo.runo.maidcafese"
 $repo = "aon-co-jp/maid-cafe-se"
 
-# --- APKを決める: 引数 → このフォルダ → dist → 最新リリースからダウンロード ---
+# --- APKを決める: 引数 → mobile → このフォルダ → dist → 最新リリースからダウンロード ---
 if (-not $Apk) {
-    $local = @($PSScriptRoot, (Join-Path $PSScriptRoot 'dist')) |
+    $local = @((Join-Path $PSScriptRoot 'mobile'), $PSScriptRoot, (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist')) |
         ForEach-Object { Get-ChildItem $_ -Filter 'maid-cafe-se_*_android.apk' -ErrorAction SilentlyContinue } |
         Sort-Object Name -Descending | Select-Object -First 1
     if ($local) {
