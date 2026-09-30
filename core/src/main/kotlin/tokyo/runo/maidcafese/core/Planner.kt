@@ -1,55 +1,18 @@
 package tokyo.runo.maidcafese.core
 
+import java.net.URLDecoder
+import java.net.URLEncoder
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 
-/** 読み上げ文の生成。TTSが読み間違えやすい記号(♪等)は入れない。 */
+/** 読み上げ文。生成はRust側。 */
 object SpeechText {
-    /** [base]の後ろに選択されたセリフを、**選んだ順**([ids]の反復順)で続ける。何も無ければnull。 */
-    fun withPhrases(base: String?, ids: Set<String>): String? {
-        val spoken = ids.mapNotNull { MaidPhrases.byId(it) }.map { it.spoken }
-        val parts = listOfNotNull(base) + spoken
-        return if (parts.isEmpty()) null else parts.joinToString(" ")
-    }
-
-    /** 本文(基本メッセージ)の間・抑揚。本文の後ろにセリフが続く場合は、少し間を空ける。 */
-    private const val BASE_GAP_MS = 300
-
-    /** [withPhrases]と同じ内容を、セリフごとの間・抑揚つきの区切りで返す。 */
-    fun segments(base: String?, ids: Set<String>): List<Segment> {
-        val phrases = ids.mapNotNull { MaidPhrases.byId(it) }
-        val out = ArrayList<Segment>()
-        if (base != null) out += Segment(base, gapAfterMs = if (phrases.isEmpty()) 0 else BASE_GAP_MS)
-        phrases.forEachIndexed { i, p ->
-            out += Segment(p.spoken, p.pitch, p.rate, if (i == phrases.lastIndex) 0 else p.gapMs)
-        }
-        return out
-    }
-
-    /** 指定時刻の基本メッセージ。読み上げ文が空でセリフだけ選ばれている場合はnull(セリフのみ喋る)。 */
-    fun alarmBase(kind: AlarmKind, text: String, label: String, voice: VoiceStyle, ids: Set<String>): String? =
-        if (kind == AlarmKind.SPEECH && !(text.isBlank() && ids.isNotEmpty())) alarm(text.ifBlank { label }, voice) else null
-
-    /** 指定時刻の読み上げ文(全体)。 */
+    /** 指定時刻の読み上げ文(全体)。読み上げない設定ならnull。 */
     fun alarmSpeech(kind: AlarmKind, text: String, label: String, voice: VoiceStyle, ids: Set<String>): String? =
-        withPhrases(alarmBase(kind, text, label, voice, ids), ids)
-
-    fun alarm(text: String, voice: VoiceStyle): String = when (voice) {
-        VoiceStyle.MAID -> "ご主人様、お時間ですよ。${text.trim()}。忘れずにお願いしますね"
-        VoiceStyle.DEEP_MALE -> "時間だ。${text.trim()}"
-    }
-
-    fun preNotice(title: String, minutes: Int, voice: VoiceStyle): String = when (voice) {
-        VoiceStyle.MAID -> "ご主人様、あと${minutes}分で、${title}のお時間ですわ"
-        VoiceStyle.DEEP_MALE -> "あと${minutes}分で、${title}の時間だ"
-    }
-
-    fun calendar(title: String, voice: VoiceStyle): String = when (voice) {
-        VoiceStyle.MAID -> "ご主人様、${title}のお時間です"
-        VoiceStyle.DEEP_MALE -> "${title}の時間だ"
-    }
+        Native.alarmSpeech(kind.name, text, label, voice.name, ids.joinToString(","))
 }
 
-/** 登録アラームとカレンダー予定から「次に鳴らすもの」を決める純粋関数。 */
+/** 登録アラームとカレンダー予定から「次に鳴らすもの」を決める。計算はRust側(`crates/maid-cafe-jni`→`maid-cafe-core`)。 */
 object Planner {
     /**
      * [after]より後で最も早い発火時刻の[Occurrence]を全件返す(同時刻が複数あれば複数)。無ければ空。
@@ -60,56 +23,48 @@ object Planner {
         events: List<CalendarEvent>,
         settings: CalendarSettings,
         after: LocalDateTime,
-        holidays: HolidayCalendar = JapaneseHolidays,
     ): List<Occurrence> {
-        val candidates = ArrayList<Occurrence>()
-        for (e in entries) {
-            if (!e.enabled) continue
-            e.schedule.nextTrigger(after, holidays)?.let { t ->
-                candidates += Occurrence(
-                    time = t, key = "alarm:${e.id}", title = e.label,
-                    soundId = if (e.kind == AlarmKind.SOUND) e.soundId else null,
-                    speech = SpeechText.alarmSpeech(e.kind, e.text, e.label, e.voice, e.phrases),
-                    voice = e.voice, harmony = e.harmony,
-                    segments = SpeechText.segments(SpeechText.alarmBase(e.kind, e.text, e.label, e.voice, e.phrases), e.phrases),
-                )
-            }
-            val m = e.schedule.preNoticeMinutes
-            e.schedule.nextPreNotice(after, holidays)?.let { t ->
-                candidates += Occurrence(
-                    time = t, key = "pre:${e.id}", title = e.label, soundId = null,
-                    speech = SpeechText.withPhrases(SpeechText.preNotice(e.label, m!!, e.voice), e.prePhrases),
-                    voice = e.voice, harmony = e.harmony,
-                    segments = SpeechText.segments(SpeechText.preNotice(e.label, m, e.voice), e.prePhrases),
-                )
-            }
+        val out = Native.planNext(Codec.encodeAll(entries), encodeEvents(events), encodeSettings(settings), secs(after))
+        return out.lines().filter { it.isNotBlank() }.mapNotNull { runCatching { decodeOccurrence(it) }.getOrNull() }
+    }
+
+    private fun secs(t: LocalDateTime) = t.toEpochSecond(ZoneOffset.UTC)
+
+    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
+    private fun dec(s: String) = URLDecoder.decode(s, "UTF-8")
+
+    private fun encodeEvents(events: List<CalendarEvent>) =
+        events.joinToString("\n") { "id=${enc(it.id)}&title=${enc(it.title)}&start=${secs(it.start)}" }
+
+    private fun encodeSettings(s: CalendarSettings) = listOf(
+        "enabled" to if (s.enabled) "1" else "0",
+        "pre" to if (s.preNotice) "1" else "0",
+        "premin" to s.preNoticeMinutes.toString(),
+        "voice" to s.voice.name,
+        "ph" to s.phrases.joinToString(","),
+        "pph" to s.prePhrases.joinToString(","),
+        "harm" to if (s.harmony) "1" else "0",
+    ).joinToString("&") { (k, v) -> "$k=${enc(v)}" }
+
+    private fun decodeOccurrence(line: String): Occurrence {
+        val m = line.split("&").associate {
+            val i = it.indexOf('=')
+            it.substring(0, i) to it.substring(i + 1)
         }
-        if (settings.enabled) {
-            for (ev in events) {
-                if (ev.start.isAfter(after)) {
-                    candidates += Occurrence(
-                        time = ev.start, key = "cal:${ev.id}@${ev.start}", title = ev.title, soundId = null,
-                        speech = SpeechText.withPhrases(SpeechText.calendar(ev.title, settings.voice), settings.phrases),
-                        voice = settings.voice, harmony = settings.harmony,
-                        segments = SpeechText.segments(SpeechText.calendar(ev.title, settings.voice), settings.phrases),
-                    )
-                }
-                val pre = ev.start.minusMinutes(settings.preNoticeMinutes.toLong())
-                if (settings.preNotice && pre.isAfter(after)) {
-                    candidates += Occurrence(
-                        time = pre, key = "calpre:${ev.id}@${ev.start}", title = ev.title, soundId = null,
-                        speech = SpeechText.withPhrases(
-                            SpeechText.preNotice(ev.title, settings.preNoticeMinutes, settings.voice), settings.prePhrases,
-                        ),
-                        voice = settings.voice, harmony = settings.harmony,
-                        segments = SpeechText.segments(
-                            SpeechText.preNotice(ev.title, settings.preNoticeMinutes, settings.voice), settings.prePhrases,
-                        ),
-                    )
-                }
-            }
+        fun text(k: String) = dec(m.getValue(k))
+        val segments = m["seg"].orEmpty().split(";").filter { it.isNotEmpty() }.map {
+            val f = it.split(",")
+            Segment(dec(f[0]), f[1].toDouble(), f[2].toFloat(), f[3].toInt())
         }
-        val first = candidates.minOfOrNull { it.time } ?: return emptyList()
-        return candidates.filter { it.time == first }
+        return Occurrence(
+            time = LocalDateTime.ofEpochSecond(m.getValue("t").toLong(), 0, ZoneOffset.UTC),
+            key = text("key"),
+            title = text("title"),
+            soundId = text("sound").ifEmpty { null },
+            speech = text("speech").ifEmpty { null },
+            voice = VoiceStyle.valueOf(m.getValue("voice")),
+            harmony = m["harm"] == "1",
+            segments = segments,
+        )
     }
 }

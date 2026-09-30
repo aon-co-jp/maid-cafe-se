@@ -2,12 +2,12 @@ package tokyo.runo.maidcafese.core
 
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalAdjusters
 
-/** 「どの日に鳴らすか」の定型ルール。 */
+/**
+ * 「どの日に鳴らすか」の定型ルール(画面・保存用のデータ)。**どの日に当たるかの判定と、次の発火時刻の計算はRust側**
+ * (`maid-cafe-core`の`Recurrence`/`Schedule`、日本の祝日つき)。
+ */
 sealed interface Recurrence {
     /** 毎日。 */
     data object Daily : Recurrence
@@ -35,26 +35,6 @@ sealed interface Recurrence {
             require(days.isNotEmpty()) { "曜日を1つ以上指定してください" }
         }
     }
-
-    fun matches(date: LocalDate, holidays: HolidayCalendar): Boolean = when (this) {
-        Daily -> true
-        is Weekdays -> date.dayOfWeek !in WEEKEND && !(skipHolidays && holidays.isHoliday(date))
-        WeekendsAndHolidays -> date.dayOfWeek in WEEKEND || holidays.isHoliday(date)
-        is DaysOfWeek -> date.dayOfWeek in days
-        is NthWeekdayOfMonth -> date.dayOfWeek == day && when (nth) {
-            -1 -> date == date.with(TemporalAdjusters.lastInMonth(day))
-            else -> (date.dayOfMonth - 1) / 7 + 1 == nth
-        }
-        is EveryNWeeks -> {
-            val weeks = ChronoUnit.WEEKS.between(anchor.monday(), date.monday())
-            date.dayOfWeek in days && weeks >= 0 && weeks % interval == 0L
-        }
-    }
-
-    private companion object {
-        val WEEKEND = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-        fun LocalDate.monday(): LocalDate = with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    }
 }
 
 /** 何時に鳴らすか+有効期間。[preNoticeMinutes]が非nullなら、その分前に予告も鳴らす。 */
@@ -66,31 +46,4 @@ data class Schedule(
     val preNoticeMinutes: Int? = null,
 ) {
     init { require(preNoticeMinutes == null || preNoticeMinutes > 0) { "予告は1分以上前" } }
-
-    /** [after]より後の最初の発火時刻。探索は最大 [SEARCH_DAYS] 日先まで、無ければnull。 */
-    fun nextTrigger(after: LocalDateTime, holidays: HolidayCalendar = JapaneseHolidays): LocalDateTime? {
-        var date = after.toLocalDate()
-        if (startDate != null && date.isBefore(startDate)) date = startDate
-        repeat(SEARCH_DAYS) {
-            if (endDate != null && date.isAfter(endDate)) return null
-            if (recurrence.matches(date, holidays)) {
-                val dt = date.atTime(time)
-                if (dt.isAfter(after)) return dt
-            }
-            date = date.plusDays(1)
-        }
-        return null
-    }
-
-    /** [after]より後の最初の予告時刻(予告なし設定ならnull)。予告時刻が過去でも本番時刻が未来なら次回分を探す。 */
-    fun nextPreNotice(after: LocalDateTime, holidays: HolidayCalendar = JapaneseHolidays): LocalDateTime? {
-        val m = preNoticeMinutes ?: return null
-        // 予告は本番の m 分前。after+m分より後の本番を探せば、その予告は after より後になる。
-        val trigger = nextTrigger(after.plusMinutes(m.toLong()), holidays) ?: return null
-        return trigger.minusMinutes(m.toLong())
-    }
-
-    companion object {
-        const val SEARCH_DAYS = 366 * 5
-    }
 }

@@ -12,8 +12,8 @@ android {
         applicationId = "tokyo.runo.maidcafese"
         minSdk = 26 // java.time を desugaring 無しで使うため
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.5.0"
     }
 
     // 正式リリース署名。鍵情報は環境変数からのみ受け取り、このファイルにも他のファイルにも秘密を書かない
@@ -67,3 +67,28 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.13.1")
 }
+
+// Rust製コア(crates/maid-cafe-jni)を cargo-ndk で各ABIの.soにして、APKに入れる。
+// 要: Rust(+ `rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android`)、`cargo install cargo-ndk`、Android NDK。
+val rustJniLibs = layout.projectDirectory.dir("src/main/jniLibs")
+val buildRustJni = tasks.register<Exec>("buildRustJni") {
+    group = "build"
+    description = "Rust製コアを cargo-ndk でビルドして src/main/jniLibs へ出力する"
+    workingDir = rootDir
+    val home = File(System.getProperty("user.home"))
+    val isWin = "win" in System.getProperty("os.name").lowercase()
+    val cargoBin = File(home, ".cargo/bin")
+    val sdkDir = (File(rootDir, "local.properties").takeIf { it.exists() }?.readLines()
+        ?.firstOrNull { it.startsWith("sdk.dir=") }?.substringAfter("=")?.replace("\\\\", "/")
+        ?: System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT"))
+    val ndk = System.getenv("ANDROID_NDK_HOME")
+        ?: sdkDir?.let { File(it, "ndk").listFiles()?.filter { f -> f.isDirectory }?.maxByOrNull { f -> f.name }?.absolutePath }
+    environment("PATH", cargoBin.absolutePath + File.pathSeparator + System.getenv("PATH"))
+    if (ndk != null) environment("ANDROID_NDK_HOME", ndk)
+    commandLine(
+        File(cargoBin, if (isWin) "cargo.exe" else "cargo").absolutePath, "ndk",
+        "-t", "arm64-v8a", "-t", "armeabi-v7a", "-t", "x86_64", "-P", "26",
+        "-o", rustJniLibs.asFile.absolutePath, "build", "--release", "-p", "maid-cafe-jni",
+    )
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildRustJni) }

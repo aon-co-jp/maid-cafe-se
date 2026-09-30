@@ -23,7 +23,7 @@ fn simple(text: &str, phrases: &[&str]) -> AlarmEntry {
 }
 
 fn first(e: &AlarmEntry, after: chrono::NaiveDateTime) -> Occurrence {
-    Planner::next(std::slice::from_ref(&e), &[], &CalendarSettings::default(), after, &NoHolidays).remove(0)
+    Planner::next(std::slice::from_ref(e), &[], &CalendarSettings::default(), after, &NoHolidays).remove(0)
 }
 
 fn t0() -> chrono::NaiveDateTime {

@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)] // HTTPの応答(hyper::Response)をそのままErrで返す設計。大きさは問題にならない
+
 //! maid-cafe-se Windows版。画面とAPI(RPoem)・スケジューラ・Windows音声(SAPI)・保存。`main.rs`がトレイと起動処理をつなぐ。
 
 pub mod api;
@@ -55,7 +57,7 @@ pub fn open_ui(port: u16) {
         const NO_WINDOW: u32 = 0x0800_0000;
         let edge = ["ProgramFiles(x86)", "ProgramFiles"]
             .iter()
-            .filter_map(|v| std::env::var_os(v))
+            .filter_map(std::env::var_os)
             .map(|p| std::path::PathBuf::from(p).join(r"Microsoft\Edge\Application\msedge.exe"))
             .find(|p| p.exists());
         let spawned = match edge {

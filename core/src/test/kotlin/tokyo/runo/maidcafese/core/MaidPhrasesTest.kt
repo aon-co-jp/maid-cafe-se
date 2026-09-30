@@ -25,7 +25,7 @@ class MaidPhrasesTest {
     )
 
     private fun first(e: AlarmEntry, after: LocalDateTime = dt(0)) =
-        Planner.next(listOf(e), emptyList(), CalendarSettings(), after, NoHolidays).first()
+        Planner.next(listOf(e), emptyList(), CalendarSettings(), after).first()
 
     @Test fun catalogHasTheRequestedPhrases() {
         val display = MaidPhrases.all.map { it.display }
@@ -111,10 +111,10 @@ class MaidPhrasesTest {
         val s = CalendarSettings(
             enabled = true, phrases = setOf("perfect"), prePhrases = setOf("excellent"), harmony = true,
         )
-        val pre = Planner.next(emptyList(), listOf(ev), s, dt(8), NoHolidays).first()
+        val pre = Planner.next(emptyList(), listOf(ev), s, dt(8)).first()
         assertEquals(dt(9, 30), pre.time)
         assertTrue(pre.speech!!.endsWith("エクセレント！") && pre.harmony)
-        val main = Planner.next(emptyList(), listOf(ev), s, dt(9, 30), NoHolidays).first()
+        val main = Planner.next(emptyList(), listOf(ev), s, dt(9, 30)).first()
         assertTrue(main.speech!!.contains("会議") && main.speech!!.endsWith("パーフェクト！"))
     }
 

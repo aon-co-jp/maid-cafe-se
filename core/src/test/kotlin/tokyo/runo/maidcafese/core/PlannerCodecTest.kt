@@ -21,7 +21,7 @@ class PlannerCodecTest {
     )
 
     @Test fun soundEntry() {
-        val r = Planner.next(listOf(entry()), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0), NoHolidays)
+        val r = Planner.next(listOf(entry()), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
         assertEquals(1, r.size)
         assertEquals(dt(2026, 9, 30, 7), r[0].time)
         assertEquals("chime", r[0].soundId)
@@ -29,51 +29,51 @@ class PlannerCodecTest {
     }
 
     @Test fun speechEntryMaidAndDeep() {
-        val maid = Planner.next(listOf(entry(kind = AlarmKind.SPEECH)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0), NoHolidays)
+        val maid = Planner.next(listOf(entry(kind = AlarmKind.SPEECH)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
         assertNull(maid[0].soundId)
         assertTrue(maid[0].speech!!.contains("ご主人様") && maid[0].speech!!.contains("薬を飲む"))
-        val deep = Planner.next(listOf(entry(kind = AlarmKind.SPEECH, voice = VoiceStyle.DEEP_MALE)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0), NoHolidays)
+        val deep = Planner.next(listOf(entry(kind = AlarmKind.SPEECH, voice = VoiceStyle.DEEP_MALE)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
         assertEquals("時間だ。薬を飲む", deep[0].speech)
         assertEquals(VoiceStyle.DEEP_MALE, deep[0].voice)
     }
 
     @Test fun preNoticeComesFirst() {
-        val r = Planner.next(listOf(entry(pre = 30)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0), NoHolidays)
+        val r = Planner.next(listOf(entry(pre = 30)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
         assertEquals(dt(2026, 9, 30, 6, 30), r[0].time)
         assertTrue(r[0].key.startsWith("pre:"))
         assertTrue(r[0].speech!!.contains("30分"))
     }
 
     @Test fun disabledIgnored() {
-        assertTrue(Planner.next(listOf(entry(enabled = false)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0), NoHolidays).isEmpty())
+        assertTrue(Planner.next(listOf(entry(enabled = false)), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0)).isEmpty())
     }
 
     @Test fun calendarEventsWithPreNotice() {
         val ev = CalendarEvent("e1", "会議", dt(2026, 9, 30, 10))
         val on = CalendarSettings(enabled = true, preNotice = true)
-        val r = Planner.next(emptyList(), listOf(ev), on, dt(2026, 9, 30, 8), NoHolidays)
+        val r = Planner.next(emptyList(), listOf(ev), on, dt(2026, 9, 30, 8))
         assertEquals(dt(2026, 9, 30, 9, 30), r[0].time)
         assertTrue(r[0].speech!!.contains("会議"))
-        val r2 = Planner.next(emptyList(), listOf(ev), on, dt(2026, 9, 30, 9, 30), NoHolidays)
+        val r2 = Planner.next(emptyList(), listOf(ev), on, dt(2026, 9, 30, 9, 30))
         assertEquals(dt(2026, 9, 30, 10), r2[0].time)
     }
 
     @Test fun calendarPreNoticeCheckboxOffAndDisabled() {
         val ev = CalendarEvent("e1", "会議", dt(2026, 9, 30, 10))
-        val off = Planner.next(emptyList(), listOf(ev), CalendarSettings(enabled = true, preNotice = false), dt(2026, 9, 30, 8), NoHolidays)
+        val off = Planner.next(emptyList(), listOf(ev), CalendarSettings(enabled = true, preNotice = false), dt(2026, 9, 30, 8))
         assertEquals(dt(2026, 9, 30, 10), off[0].time)
-        assertTrue(Planner.next(emptyList(), listOf(ev), CalendarSettings(enabled = false), dt(2026, 9, 30, 8), NoHolidays).isEmpty())
+        assertTrue(Planner.next(emptyList(), listOf(ev), CalendarSettings(enabled = false), dt(2026, 9, 30, 8)).isEmpty())
     }
 
     @Test fun simultaneousOccurrencesReturnedTogether() {
         val ev = CalendarEvent("e1", "会議", dt(2026, 9, 30, 7))
-        val r = Planner.next(listOf(entry()), listOf(ev), CalendarSettings(enabled = true, preNotice = false), dt(2026, 9, 30, 0), NoHolidays)
+        val r = Planner.next(listOf(entry()), listOf(ev), CalendarSettings(enabled = true, preNotice = false), dt(2026, 9, 30, 0))
         assertEquals(2, r.size)
     }
 
     @Test fun eventInPastIgnored() {
         val ev = CalendarEvent("e1", "会議", dt(2026, 9, 30, 10))
-        assertTrue(Planner.next(emptyList(), listOf(ev), CalendarSettings(enabled = true), dt(2026, 9, 30, 10), NoHolidays).isEmpty())
+        assertTrue(Planner.next(emptyList(), listOf(ev), CalendarSettings(enabled = true), dt(2026, 9, 30, 10)).isEmpty())
     }
 
     @Test fun codecRoundTripAllRecurrences() {

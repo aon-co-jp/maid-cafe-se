@@ -9,3 +9,4 @@ local.properties
 installer/dist/
 tools/gen-sounds/target/
 /target/
+app/src/main/jniLibs/

@@ -14,13 +14,11 @@ import java.util.Locale
 import tokyo.runo.maidcafese.core.Occurrence
 import tokyo.runo.maidcafese.core.Segment
 import tokyo.runo.maidcafese.core.VoiceStyle
-import tokyo.runo.maidcafese.core.audio.Pcm
+import tokyo.runo.maidcafese.core.Native
 import tokyo.runo.maidcafese.core.audio.SourceGender
-import tokyo.runo.maidcafese.core.audio.VoiceDsp
-import tokyo.runo.maidcafese.core.audio.Wav
 
 /**
- * 読み上げ再生。文(セリフ)ごとに端末のTTSでWAVへ合成し(`synthesizeToFile`)、[VoiceDsp]でピッチ・声の太さを
+ * 読み上げ再生。文(セリフ)ごとに端末のTTSでWAVへ合成し(`synthesizeToFile`)、Rust製コア(`Native.renderSegment`)でピッチ・声の太さを
  * 加工(セリフごとの抑揚つき)、無音トリム・音量統一のうえ、指定の「間」を挟んで連結して1本にして鳴らす。
  * ハモりは同じ音声から3度違いの声を重ねる。合成・解析・加工のどこかで失敗したら、従来の直接読み上げに切り替える。
  */
@@ -128,26 +126,32 @@ class SpeechPlayer(
         val item = items[i]
         val file = File(ctx.cacheDir, "tts_${i}_$k.wav")
         try {
-            val pcm = Wav.parse(file.readBytes())
+            val wav = file.readBytes()
             file.delete()
-            if (pcm == null || pcm.samples.size < pcm.sampleRate / 20) {
+            val sr = Native.wavSampleRate(wav)
+            val t0 = System.nanoTime()
+            // 加工はRust側(読めない・短すぎる音声はnull)
+            val out = if (sr > 0) {
+                Native.renderSegment(wav, item.voice.name, Voices.genderOf(tts, item.voice).name, item.harmony, segs[k].pitch)
+            } else {
+                null
+            }
+            if (out == null) {
                 main.post { fallback(i, "WAV解析不可/空") }
                 return
             }
-            sampleRate = pcm.sampleRate
-            val t0 = System.nanoTime()
-            val out = VoiceDsp.render(pcm, item.voice, Voices.genderOf(tts, item.voice), item.harmony, segs[k].pitch)
-            Log.i(TAG, "DSP seg ${k + 1}/${segs.size} ${pcm.seconds}s -> ${out.seconds}s in ${(System.nanoTime() - t0) / 1_000_000}ms style=${item.voice} harmony=${item.harmony} pitchMul=${segs[k].pitch} sr=${pcm.sampleRate}")
-            parts.add(out.samples)
+            sampleRate = sr
+            Log.i(TAG, "DSP seg ${k + 1}/${segs.size} ${out.size.toDouble() / sr}s in ${(System.nanoTime() - t0) / 1_000_000}ms (Rust) style=${item.voice} harmony=${item.harmony} pitchMul=${segs[k].pitch} sr=$sr")
+            parts.add(out)
             if (k + 1 < segs.size) {
                 main.post { synth(k + 1) }
             } else {
-                val joined = Pcm(VoiceDsp.join(parts, segs.map { it.gapAfterMs }, sampleRate), sampleRate)
-                if (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-                    // デバッグビルドのみ: 最終WAVを保存(実機での検証用)
-                    File(ctx.cacheDir, "debug_final_${item.voice}_${item.harmony}.wav").writeBytes(Wav.toBytes(joined))
+                val joined = Native.joinPcm16(parts.toTypedArray(), segs.map { it.gapAfterMs }.toIntArray(), sampleRate)
+                if (joined == null) {
+                    main.post { fallback(i, "連結失敗") }
+                    return
                 }
-                main.post { play(joined) }
+                main.post { play(joined, sampleRate) }
             }
         } catch (e: Exception) {
             Log.e(TAG, "process failed", e)
@@ -155,14 +159,13 @@ class SpeechPlayer(
         }
     }
 
-    private fun play(pcm: Pcm) {
+    private fun play(data: ShortArray, sampleRate: Int) {
         if (stopped) return
-        val data = Wav.toPcm16(pcm.samples)
         val t = AudioTrack.Builder()
             .setAudioAttributes(alarmAttrs())
             .setAudioFormat(
                 AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(pcm.sampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build(),
+                    .setSampleRate(sampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build(),
             )
             .setTransferMode(AudioTrack.MODE_STATIC)
             .setBufferSizeInBytes(data.size * 2)
@@ -176,7 +179,7 @@ class SpeechPlayer(
         track = t
         t.play()
         // マーカーが来ない端末への保険
-        main.postDelayed({ done(t) }, (pcm.seconds * 1000).toLong() + 1500)
+        main.postDelayed({ done(t) }, (data.size * 1000L / sampleRate) + 1500)
     }
 
     private fun done(t: AudioTrack) {

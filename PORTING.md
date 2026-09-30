@@ -60,7 +60,9 @@
 
 ユーザー指示「アプリ本体もRust+RPoemで作り直して、早く」。現状のKotlin実装(`core`/`app`/`desktop`)を、テストを仕様として段階的にRustへ置き換える。
 
-**進捗(2026-09-30)**: 1(core)と2(Windows版)は完了。Windows版は`crates/maid-cafe-desktop`(v0.5.0、RPoemのローカルWebサーバー+画面+スケジューラ+SAPI+トレイ、テスト: 単体29+HTTP結合6、`clippy -D warnings`クリーン、実機で`--selftest`・インストール/自動起動/アンインストールを確認、Kotlinの`desktop/`は削除済み)。設計判断: 画面はネイティブUIではなくRPoemのローカルWeb UI(相談事項の暫定決定。`127.0.0.1`限定+Host/Origin検査+専用ヘッダ)、保存形式はKotlin版と同一(旧データをそのまま読める)。未検証: 合成音の主観的な聴こえ(数値のみ)、Edge無し環境の既定ブラウザ起動、スリープ復帰をまたいだ発火。3(Android)は未着手→次の作業。
+**進捗(2026-09-30)**: 1(core)と2(Windows版)は完了。Windows版は`crates/maid-cafe-desktop`(v0.5.0、RPoemのローカルWebサーバー+画面+スケジューラ+SAPI+トレイ、テスト: 単体29+HTTP結合6、`clippy -D warnings`クリーン、実機で`--selftest`・インストール/自動起動/アンインストールを確認、Kotlinの`desktop/`は削除済み)。設計判断: 画面はネイティブUIではなくRPoemのローカルWeb UI(相談事項の暫定決定。`127.0.0.1`限定+Host/Origin検査+専用ヘッダ)、保存形式はKotlin版と同一(旧データをそのまま読める)。未検証: 合成音の主観的な聴こえ(数値のみ)、Edge無し環境の既定ブラウザ起動、スリープ復帰をまたいだ発火。3(Android)も実装済み(下記)。
+
+**Android版のRust化(2026-09-30、v0.5.0)**: `crates/maid-cafe-jni`(cdylib、`jni`クレート)がKotlinの`core.Native`から呼ばれる。**Rust側に移したもの**: 次の発火の計算(繰り返し・日本の祝日・Planner・読み上げ文・セリフごとの抑揚)、セリフ番号のルール、TTS出力の加工(声の太さ独立制御・ハモり・無音トリム・音量統一・連結・16bit化)。**Kotlinに残したもの**: 画面(Compose)、AlarmManager、端末TTSでのWAV合成、AudioTrack再生、CalendarProvider、SharedPreferences、保存形式の読み書き(`Codec`、Rust版と互換)、データクラス。つまり「計算と音声処理はRust、OS連携と画面はKotlin」で、Kotlinを全廃したわけではない(AndroidのAPIはKotlin/Javaからしか呼べないため、ここは薄いKotlinが要る)。受け渡しは文字列と数値配列だけ(`bridge.rs`冒頭に形式)。ビルド: `app`の`buildRustJni`が`cargo ndk`で`arm64-v8a`/`armeabi-v7a`/`x86_64`の.so(約0.6〜0.8MB)を作ってAPKへ(`jniLibs/`はgit管理外)。検証: Rustのブリッジ単体8件、KotlinのJVMテスト31件(ホスト向けDLLを本物のJNIで読む=JNI結線の結合テスト)、エミュレータ(x86_64)で起動・番号付け・テスト再生(Rust加工 7.15秒分を286msで処理し再生まで)。旧Kotlin実装(Recurrence判定・祝日・Planner・VoiceDsp・Resampler・Wav)とそのテスト(祝日・繰り返し・DSP)は削除し、同じ検証はRust側のテスト(祝日・繰り返し・数値照合フィクスチャ)が担う。未検証: 実機端末(ARM)での動作、`armeabi-v7a`の実行、長時間のアラーム発火、主観的な音質。
 
 1. `core`のRust移植(`crates/`): 繰り返しルール・日本の祝日・Planner・Codec・セリフ番号・VoiceDsp(WSOLA/リサンプラ/EQ)。Kotlin側の`core`テスト75件と同じ検証をRustのテストで再現し、同じ入力で同じ出力になることを確認する。
 2. Windows版をRustへ: トレイ常駐・スケジューラ・SAPI(WinRT/COM)・音声出力。UIの方式(RPoemのローカルWeb UIか、ネイティブUIか)は要相談。

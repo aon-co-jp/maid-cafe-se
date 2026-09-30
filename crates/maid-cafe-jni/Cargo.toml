@@ -1,0 +1,16 @@
+[package]
+name = "maid-cafe-jni"
+version = "0.5.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "maid-cafe-se Android版のRustコア(JNI)。次の発火の計算・読み上げ文・セリフ番号・音声の加工をKotlinから呼ぶ。"
+
+[lib]
+# cdylib: Android(.so)とJVMテスト(Windowsの.dll)用。rlib: Rustのテスト用
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+chrono = { workspace = true }
+jni = "0.21"
+maid-cafe-core = { path = "../maid-cafe-core" }

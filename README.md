@@ -57,7 +57,7 @@ Androidスマホを、メイドカフェ風(または低い男性の声)の専�
 ```
 cargo test --workspace                  # Rust: core(祝日・繰り返し・セリフ番号・保存形式)、Windows版(API・スケジューラ・HTTP結合)
 cargo clippy --workspace --all-targets -- -D warnings
-gradlew :core:test :app:assembleDebug   # Android(Kotlin、Rust化の途中)
+gradlew :core:test :app:assembleDebug   # Android: Kotlin(画面・OS連携)+ Rust製コア(JNI)。:core:testはホスト向けにビルドしたRustのDLLを本物のJNIで読み込む
 ```
 
 Rustのビルドには、兄弟ディレクトリに`RPoem`(`F:\RPoem`)が必要(パス依存。`open-english`などと同じ)。Windowsインストーラーは`installer\build-windows.ps1`。
