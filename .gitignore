@@ -6,3 +6,6 @@ local.properties
 .idea/
 *.iml
 .DS_Store
+installer/dist/
+tools/gen-sounds/target/
+desktop/build/

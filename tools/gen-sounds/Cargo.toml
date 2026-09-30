@@ -1,0 +1,8 @@
+[package]
+name = "gen-sounds"
+version = "0.1.0"
+edition = "2021"
+description = "maid-cafe-se 同梱音源(chime/alarm/melody)を数式だけで生成する。外部音源を使わないので著作権の問題が無い(生成物はCC0)。"
+license = "CC0-1.0"
+
+[dependencies]

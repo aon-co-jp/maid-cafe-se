@@ -1,6 +1,9 @@
 # PORTING / 開発メモ (maid-cafe-se)
 
 ## 現状 (2026-09-30)
+- **v0.4.0**: Windows版(`desktop/`、Compose Desktop、`core`と`shared-ui/`をAndroid版と共有)、インストーラー(`installer/`、NSIS→`maid-cafe-se-installer.exe`)、署名つきAPK。Windows版はWindows標準の日本語音声(SAPI)をPowerShell経由で使い、同じVoiceDsp処理を通す。実機(このPC)で、自己診断・スケジューラ発火(狂い2ms)・インストール/上書き/アンインストール/自動起動を確認。desktopテスト3件。
+- 音源生成は`tools/gen-sounds`(Rust)へ移行済み(旧Python版と出力がバイト単位で同一)。リポジトリ内のPythonは無くなった。
+- **次の大きな課題: アプリ本体のRust(+RPoem)化**(ユーザー指示 2026-09-30)。下の「Rust移行計画」を参照。
 - (v0.3.0の後) 喋る順の番号(編集可・重複は自動で振り直し)。`MaidPhrases.assign`が正本。**Setの等価判定は順序を無視する**ため、並べ替えだけの更新はComposeの状態が「変更なし」と見なして再描画されない罠があった(`neverEqualPolicy`と、一覧の更新を削除+挿入にして回避)。core 75テスト、エミュレータで入れ替え・自動振り直し・保存順を確認。
 - v0.3.0: 声の磨き込み(セリフごとの間・抑揚、無音トリム、RMS音量統一+ソフトリミッター、端末音声の選択UI)。core 66テスト。エミュレータで5区切りの連結を確認(最終WAVの長さが音声+間の計算値と一致、RMS0.17、ピーク0.90)。エミュレータのjaはhtm/jab(女性)・jac/jad(男性)の4音声で、音声名からの性別推定が一致。
 - v0.2.0: メイドのセリフ6種(指定時刻/予告別)・2人ハモり・TTS後処理(VoiceDsp、make-diskのresample_poly移植)。core 57テスト。エミュレータで3声(メイド/ハモり/低音)がDSP経路で再生されることをログとWAV解析で確認(男性声0.84倍・長さ保持・ピーク0.9)。
@@ -33,3 +36,12 @@
 ## 未決事項
 - 「メイドカフェ風」の口調変換ルールの拡充範囲
 - ライセンス
+
+## Rust移行計画 (2026-09-30〜)
+
+ユーザー指示「アプリ本体もRust+RPoemで作り直して、早く」。現状のKotlin実装(`core`/`app`/`desktop`)を、テストを仕様として段階的にRustへ置き換える。
+
+1. `core`のRust移植(`crates/`): 繰り返しルール・日本の祝日・Planner・Codec・セリフ番号・VoiceDsp(WSOLA/リサンプラ/EQ)。Kotlin側の`core`テスト75件と同じ検証をRustのテストで再現し、同じ入力で同じ出力になることを確認する。
+2. Windows版をRustへ: トレイ常駐・スケジューラ・SAPI(WinRT/COM)・音声出力。UIの方式(RPoemのローカルWeb UIか、ネイティブUIか)は要相談。
+3. Android版をRustへ: `core`をJNI/UniFFI経由で共有し、UI・アラーム登録・TTSだけ薄いKotlin(またはRustのAndroidバインディング)にする。
+4. 置き換えが済んだ層から、Kotlin実装とGradleビルドを削除する。

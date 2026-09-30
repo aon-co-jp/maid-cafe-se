@@ -3,8 +3,8 @@
 **maid-cafe-se** — SEは secretary(秘書)の略。「maid-cafe による秘書サービス」。
 Androidスマホを、メイドカフェ風(または低い男性の声)の専属音声秘書にするオープンソースアプリ。
 
-> **状況(2026-09-30): v0.3.1 動作版(Androidエミュレータで実機能検証済み、実機端末での検証は未実施)。**
-> デバッグ署名のAPKを[Releases](https://github.com/aon-co-jp/maid-cafe-se/releases)で配布(プレリリース)。
+> **状況(2026-09-30): v0.4.0 動作版(Androidエミュレータで実機能検証済み、実機端末での検証は未実施)。**
+> インストーラー(Windows)・署名つきAPK(Android)を[Releases](https://github.com/aon-co-jp/maid-cafe-se/releases/latest)で配布。入手・インストール方法は[`installer/`](installer/README.md)。
 
 ## 主な機能(計画)
 
@@ -37,8 +37,14 @@ Androidスマホを、メイドカフェ風(または低い男性の声)の専�
   - セリフごとに1文ずつ合成し、**セリフごとの間(250〜400ms)と抑揚(音程・話速の倍率)**を付けて繋ぐ(例: 「おいしくな～れ萌え萌えキュ～ン」はゆっくり少し高め、「ファイト！」は速め)。
   - 前後の無音トリム、**音量(RMS)の統一**、ソフトリミッター。短い言葉と長い文の聴こえの大きさが揃う。
   - **声の元になる端末の日本語音声を、声質(メイド風/低い男性)ごとに選べる**(メイン画面。未選択は自動)。
-- 音源は`tools/gen_sounds.py`で数式生成(外部音源なし、CC0)
+- 音源は`tools/gen-sounds`(Rust。旧Python版とバイト単位で同一の出力)で数式生成(外部音源なし、CC0)
 - エミュレータ実機検証済み: アラーム発火(Doze考慮の`setAlarmClock`)、TTS読み上げ、音の再生、カレンダー予定の30分前予告、次回の自動再登録
+
+## Windows版(v0.4.0〜)
+
+Android版と同じ`core`(繰り返しルール・祝日・音声処理)を共有するデスクトップ版。`maid-cafe-se-installer.exe`で入る。
+タスクトレイ常駐、Windows起動時の自動起動(任意)、読み上げはWindows標準の日本語音声(SAPI、Microsoft Haruka等)を同じ加工処理(声質・ハモり・セリフごとの間)に通して鳴らす。
+Googleカレンダー連動はAndroid版のみ(Windows版は未対応)。
 
 ## ビルド
 

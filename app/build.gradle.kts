@@ -12,13 +12,35 @@ android {
         applicationId = "tokyo.runo.maidcafese"
         minSdk = 26 // java.time を desugaring 無しで使うため
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.0"
+    }
+
+    // 正式リリース署名。鍵情報は環境変数からのみ受け取り、このファイルにも他のファイルにも秘密を書かない
+    // (keystore本体は絶対にコミットしない。`installer/build-release.ps1`が環境変数を設定してビルドする)。
+    // 環境変数が揃っていない場合、releaseビルドは署名なしのまま(デバッグ署名のフローには影響しない)。
+    val releaseStoreFile = System.getenv("MAID_CAFE_SE_KEYSTORE_FILE")
+    val releaseStorePassword = System.getenv("MAID_CAFE_SE_KEYSTORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("MAID_CAFE_SE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("MAID_CAFE_SE_KEY_PASSWORD")
+    val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() && !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -31,6 +53,8 @@ android {
     buildFeatures {
         compose = true
     }
+    // Android版とWindows版(desktop)で共有する画面部品
+    sourceSets.getByName("main").java.srcDir("../shared-ui/src")
 }
 
 dependencies {

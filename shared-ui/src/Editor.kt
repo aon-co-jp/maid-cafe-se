@@ -1,5 +1,7 @@
 package tokyo.runo.maidcafese
 
+// Android版(app)とWindows版(desktop)で共有するアラーム編集ダイアログ。テスト再生はプラットフォーム側が[onTest]で実装する。
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +13,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -79,7 +82,12 @@ private fun <T> Choice(items: List<T>, selected: T, label: (T) -> String, onPick
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (AlarmEntry) -> Unit) {
+fun EditorDialog(
+    initial: AlarmEntry?,
+    onDismiss: () -> Unit,
+    onSave: (AlarmEntry) -> Unit,
+    onTest: (AlarmEntry) -> Unit,
+) {
     val rec0 = initial?.schedule?.recurrence ?: Recurrence.Weekdays()
     val t0 = initial?.schedule?.time ?: LocalTime.of(7, 0)
     var label by remember { mutableStateOf(initial?.label ?: "") }
@@ -163,12 +171,14 @@ fun editorDialogImpl(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (Alarm
                     PhrasePicker(prePhrases) { prePhrases = it }
                 }
                 HarmonyCheck(harmony) { harmony = it }
-                TestButton(
-                    AlarmEntry(
-                        "test", label.ifBlank { "アラーム" }, Schedule(Recurrence.Daily, LocalTime.of(0, 0)),
-                        kind, soundId, text, voice, phrases = phrases, harmony = harmony,
-                    ),
-                )
+                OutlinedButton(onClick = {
+                    onTest(
+                        AlarmEntry(
+                            "test", label.ifBlank { "アラーム" }, Schedule(Recurrence.Daily, LocalTime.of(0, 0)),
+                            kind, soundId, text, voice, phrases = phrases, harmony = harmony,
+                        ),
+                    )
+                }) { Text("テスト再生") }
             }
         },
         confirmButton = {
