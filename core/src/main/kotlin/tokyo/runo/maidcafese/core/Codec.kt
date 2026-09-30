@@ -54,6 +54,7 @@ object Codec {
         "pph" to e.prePhrases.joinToString(","),
         "harm" to if (e.harmony) "1" else "0",
     ).plus(if (e.speechSound) listOf("ss" to "1") else emptyList()) // オンのときだけ書く(旧版と同じ行を保つ)
+        .plus(if (e.lang != Langs.DEFAULT) listOf("lang" to e.lang) else emptyList())
         .joinToString("&") { (k, v) -> "$k=${enc(v)}" }
 
     fun decode(line: String): AlarmEntry {
@@ -81,6 +82,7 @@ object Codec {
             prePhrases = decodeIds(m["pph"]),
             harmony = m["harm"] == "1",
             speechSound = m["ss"] == "1",
+            lang = m["lang"]?.takeIf(Langs::isKnown) ?: Langs.DEFAULT,
         )
     }
 

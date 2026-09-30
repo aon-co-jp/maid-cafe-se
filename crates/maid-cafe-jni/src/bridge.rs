@@ -73,7 +73,7 @@ fn encode_occurrence(o: &Occurrence) -> String {
         .collect::<Vec<_>>()
         .join(";");
     format!(
-        "t={}&key={}&title={}&sound={}&speech={}&voice={}&harm={}&seg={}",
+        "t={}&key={}&title={}&sound={}&speech={}&voice={}&harm={}&lang={}&seg={}",
         o.time.and_utc().timestamp(),
         url_encode(&o.key),
         url_encode(&o.title),
@@ -81,6 +81,7 @@ fn encode_occurrence(o: &Occurrence) -> String {
         url_encode(o.speech.as_deref().unwrap_or("")),
         o.voice.name(),
         if o.harmony { 1 } else { 0 },
+        o.lang,
         segs
     )
 }

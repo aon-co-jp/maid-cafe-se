@@ -111,6 +111,7 @@ async fn state_json(state: Arc<AppState>) -> Value {
             style_key(VoiceStyle::Maid): state.voice_pref(VoiceStyle::Maid),
             style_key(VoiceStyle::DeepMale): state.voice_pref(VoiceStyle::DeepMale),
         },
+        "langs": maid_cafe_core::lang::LANGS.iter().map(|l| json!({"code": l.0, "name": l.1, "english": l.2})).collect::<Vec<_>>(),
         "sounds": SOUNDS.iter().map(|s| json!({"id": s.id, "name": s.display_name})).collect::<Vec<_>>(),
         "phrases": PHRASES.iter().map(|p| json!({"id": p.id, "display": p.display})).collect::<Vec<_>>(),
     })

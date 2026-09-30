@@ -26,6 +26,8 @@ data class AlarmEntry(
     val harmony: Boolean = false,
     /** 読み上げのとき、音も一緒に鳴らす(声の下に流す)。既定はオフ=声だけ。[kind]が[AlarmKind.SOUND]なら無関係。 */
     val speechSound: Boolean = false,
+    /** 読み上げの言語([Langs])。セリフと定型文がこの言語になる。 */
+    val lang: String = Langs.DEFAULT,
 )
 
 /** Googleカレンダー(端末同期分)の予定1件。 */
@@ -68,6 +70,8 @@ data class Occurrence(
     val harmony: Boolean = false,
     /** 読み上げの区切り(文ごとの間・抑揚)。空なら[speech]を1文として読む。 */
     val segments: List<Segment> = emptyList(),
+    /** 読み上げの言語([Langs])。 */
+    val lang: String = Langs.DEFAULT,
 )
 
 /**

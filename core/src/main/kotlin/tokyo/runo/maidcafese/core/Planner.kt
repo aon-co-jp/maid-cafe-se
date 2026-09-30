@@ -64,6 +64,7 @@ object Planner {
             speech = text("speech").ifEmpty { null },
             voice = VoiceStyle.valueOf(m.getValue("voice")),
             harmony = m["harm"] == "1",
+            lang = m["lang"] ?: Langs.DEFAULT,
             segments = segments,
         )
     }

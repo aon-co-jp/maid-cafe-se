@@ -13,13 +13,18 @@ const BASE_GAP_MS: i32 = 300;
 impl SpeechText {
     /// `base`の後ろに選択されたセリフを、**喋る順**(`ids`の並び)で続ける。何も無ければ`None`。
     pub fn with_phrases(base: Option<&str>, ids: &[String]) -> Option<String> {
+        Self::with_phrases_in(base, ids, "ja")
+    }
+
+    /// [`with_phrases`](Self::with_phrases)の言語指定版。
+    pub fn with_phrases_in(base: Option<&str>, ids: &[String], lang: &str) -> Option<String> {
         let mut parts: Vec<&str> = Vec::new();
         if let Some(b) = base {
             parts.push(b);
         }
         for id in ids {
             if let Some(p) = MaidPhrases::by_id(id) {
-                parts.push(p.spoken);
+                parts.push(crate::lang::phrase_spoken(id, lang).unwrap_or(p.spoken));
             }
         }
         if parts.is_empty() {
@@ -31,6 +36,11 @@ impl SpeechText {
 
     /// [`with_phrases`](Self::with_phrases)と同じ内容を、セリフごとの間・抑揚つきの区切りで返す。
     pub fn segments(base: Option<&str>, ids: &[String]) -> Vec<Segment> {
+        Self::segments_in(base, ids, "ja")
+    }
+
+    /// [`segments`](Self::segments)の言語指定版。
+    pub fn segments_in(base: Option<&str>, ids: &[String], lang: &str) -> Vec<Segment> {
         let phrases: Vec<&Phrase> = ids.iter().filter_map(|id| MaidPhrases::by_id(id)).collect();
         let mut out = Vec::new();
         if let Some(b) = base {
@@ -44,7 +54,7 @@ impl SpeechText {
         let last = phrases.len().saturating_sub(1);
         for (i, p) in phrases.iter().enumerate() {
             out.push(Segment {
-                text: p.spoken.to_string(),
+                text: crate::lang::phrase_spoken(p.id, lang).unwrap_or(p.spoken).to_string(),
                 pitch: p.pitch,
                 rate: p.rate,
                 gap_after_ms: if i == last { 0 } else { p.gap_ms },
@@ -55,9 +65,13 @@ impl SpeechText {
 
     /// 指定時刻の基本メッセージ。読み上げ文が空でセリフだけ選ばれている場合は`None`(セリフのみ喋る)。
     pub fn alarm_base(kind: AlarmKind, text: &str, label: &str, voice: VoiceStyle, ids: &[String]) -> Option<String> {
+        Self::alarm_base_in(kind, text, label, voice, ids, "ja")
+    }
+
+    pub fn alarm_base_in(kind: AlarmKind, text: &str, label: &str, voice: VoiceStyle, ids: &[String], lang: &str) -> Option<String> {
         if kind == AlarmKind::Speech && !(text.trim().is_empty() && !ids.is_empty()) {
             let t = if text.trim().is_empty() { label } else { text };
-            Some(Self::alarm(t, voice))
+            Some(Self::alarm_in(t, voice, lang))
         } else {
             None
         }
@@ -65,10 +79,21 @@ impl SpeechText {
 
     /// 指定時刻の読み上げ文(全体)。
     pub fn alarm_speech(kind: AlarmKind, text: &str, label: &str, voice: VoiceStyle, ids: &[String]) -> Option<String> {
-        Self::with_phrases(Self::alarm_base(kind, text, label, voice, ids).as_deref(), ids)
+        Self::alarm_speech_in(kind, text, label, voice, ids, "ja")
+    }
+
+    pub fn alarm_speech_in(kind: AlarmKind, text: &str, label: &str, voice: VoiceStyle, ids: &[String], lang: &str) -> Option<String> {
+        Self::with_phrases_in(Self::alarm_base_in(kind, text, label, voice, ids, lang).as_deref(), ids, lang)
     }
 
     pub fn alarm(text: &str, voice: VoiceStyle) -> String {
+        Self::alarm_in(text, voice, "ja")
+    }
+
+    pub fn alarm_in(text: &str, voice: VoiceStyle, lang: &str) -> String {
+        if let Some(m) = crate::lang::alarm_message(text, voice, lang) {
+            return m;
+        }
         match voice {
             VoiceStyle::Maid => format!("ご主人様、お時間ですよ。{}。忘れずにお願いしますね", text.trim()),
             VoiceStyle::DeepMale => format!("時間だ。{}", text.trim()),
@@ -76,6 +101,13 @@ impl SpeechText {
     }
 
     pub fn pre_notice(title: &str, minutes: u32, voice: VoiceStyle) -> String {
+        Self::pre_notice_in(title, minutes, voice, "ja")
+    }
+
+    pub fn pre_notice_in(title: &str, minutes: u32, voice: VoiceStyle, lang: &str) -> String {
+        if let Some(m) = crate::lang::pre_notice_message(title, minutes, voice, lang) {
+            return m;
+        }
         match voice {
             VoiceStyle::Maid => format!("ご主人様、あと{minutes}分で、{title}のお時間ですわ"),
             VoiceStyle::DeepMale => format!("あと{minutes}分で、{title}の時間だ"),
@@ -109,29 +141,31 @@ impl Planner {
                 continue;
             }
             if let Some(t) = e.schedule.next_trigger(after, holidays) {
-                let base = SpeechText::alarm_base(e.kind, &e.text, &e.label, e.voice, &e.phrases);
+                let base = SpeechText::alarm_base_in(e.kind, &e.text, &e.label, e.voice, &e.phrases, &e.lang);
                 candidates.push(Occurrence {
                     time: t,
                     key: format!("alarm:{}", e.id),
                     title: e.label.clone(),
                     sound_id: if e.kind == AlarmKind::Sound || e.speech_sound { Some(e.sound_id.clone()) } else { None },
-                    speech: SpeechText::alarm_speech(e.kind, &e.text, &e.label, e.voice, &e.phrases),
+                    speech: SpeechText::alarm_speech_in(e.kind, &e.text, &e.label, e.voice, &e.phrases, &e.lang),
                     voice: e.voice,
                     harmony: e.harmony,
-                    segments: SpeechText::segments(base.as_deref(), &e.phrases),
+                    segments: SpeechText::segments_in(base.as_deref(), &e.phrases, &e.lang),
+                    lang: e.lang.clone(),
                 });
             }
             if let (Some(m), Some(t)) = (e.schedule.pre_notice_minutes, e.schedule.next_pre_notice(after, holidays)) {
-                let base = SpeechText::pre_notice(&e.label, m, e.voice);
+                let base = SpeechText::pre_notice_in(&e.label, m, e.voice, &e.lang);
                 candidates.push(Occurrence {
                     time: t,
                     key: format!("pre:{}", e.id),
                     title: e.label.clone(),
                     sound_id: None,
-                    speech: SpeechText::with_phrases(Some(&base), &e.pre_phrases),
+                    speech: SpeechText::with_phrases_in(Some(&base), &e.pre_phrases, &e.lang),
                     voice: e.voice,
                     harmony: e.harmony,
-                    segments: SpeechText::segments(Some(&base), &e.pre_phrases),
+                    segments: SpeechText::segments_in(Some(&base), &e.pre_phrases, &e.lang),
+                    lang: e.lang.clone(),
                 });
             }
         }
@@ -148,6 +182,7 @@ impl Planner {
                         voice: settings.voice,
                         harmony: settings.harmony,
                         segments: SpeechText::segments(Some(&base), &settings.phrases),
+                        lang: "ja".to_string(),
                     });
                 }
                 let pre = ev.start - Duration::minutes(settings.pre_notice_minutes as i64);
@@ -162,6 +197,7 @@ impl Planner {
                         voice: settings.voice,
                         harmony: settings.harmony,
                         segments: SpeechText::segments(Some(&base), &settings.pre_phrases),
+                        lang: "ja".to_string(),
                     });
                 }
             }
@@ -197,16 +233,16 @@ impl SpeechText {
                 let mut pitch = s.pitch * BOUNCE[i % BOUNCE.len()];
                 let mut rate = s.rate;
                 match c.chars().last() {
-                    Some('！') | Some('!') | Some('？') | Some('?') => {
+                    Some('！') | Some('!') | Some('？') | Some('?') | Some('؟') => {
                         pitch *= 1.06;
                         rate *= 0.95;
                     }
-                    Some('。') => pitch *= 0.97,
+                    Some('。') | Some('.') => pitch *= 0.97,
                     _ => {}
                 }
                 let gap = if i == last {
                     s.gap_after_ms
-                } else if c.ends_with('、') {
+                } else if c.ends_with(['、', ',', '，', '،']) {
                     90
                 } else {
                     140
@@ -229,7 +265,7 @@ fn split_clauses(text: &str) -> Vec<String> {
     let mut cur = String::new();
     for ch in text.chars() {
         cur.push(ch);
-        if matches!(ch, '、' | '。' | '！' | '？' | '!' | '?') {
+        if matches!(ch, '、' | '。' | '！' | '？' | '!' | '?' | ',' | '.' | '，' | '；' | '؟' | '،' | ';') {
             raw.push(std::mem::take(&mut cur));
         }
     }

@@ -51,7 +51,7 @@ function render() {
   ul.replaceChildren();
   $('empty').hidden = S.alarms.length > 0;
   for (const a of S.alarms) {
-    const sub = [recText(a.recurrence), a.kind === 'SPEECH' ? (a.speech_sound ? '声+音' : '声のみ') : '音', a.voice === 'DEEP_MALE' ? '低い男性' : 'メイド風',
+    const sub = [recText(a.recurrence), a.kind === 'SPEECH' ? (a.speech_sound ? '声+音' : '声のみ') : '音', a.voice === 'DEEP_MALE' ? '低い男性' : 'メイド風', (S.langs.find((l) => l.code === (a.lang || 'ja'))?.name || ''),
       a.pre_notice_minutes ? `${a.pre_notice_minutes}分前に予告` : '', a.harmony ? 'ハモり' : ''].filter(Boolean).join(' ・ ');
     const toggle = el('input', { type: 'checkbox', 'aria-label': '有効' });
     toggle.checked = a.enabled;
@@ -161,6 +161,7 @@ function openEditor(a) {
   $('f-text').value = d.text;
   $('f-voice').value = d.voice;
   $('f-harmony').checked = d.harmony;
+  $('f-lang').value = d.lang || 'ja';
   $('f-pre').checked = d.pre_notice_minutes != null;
   $('f-pre-min').value = d.pre_notice_minutes ?? 30;
   $('f-anchor').value = d.recurrence.anchor || new Date().toISOString().slice(0, 10);
@@ -189,6 +190,7 @@ function alarmFromForm() {
     phrases: orderedIds(numbers.main),
     pre_phrases: orderedIds(numbers.pre),
     harmony: $('f-harmony').checked,
+    lang: $('f-lang').value,
     pre_notice_minutes: $('f-pre').checked ? parseInt($('f-pre-min').value, 10) : null,
   };
 }
@@ -238,6 +240,7 @@ function wire() {
   try { S = await api('/api/state'); } catch (e) { $('next').textContent = e.message; return; }
   const sel = $('f-sound');
   for (const s of S.sounds) sel.append(el('option', { value: s.id, text: s.name }));
+  for (const l of S.langs) $('f-lang').append(el('option', { value: l.code, text: l.name + ' (' + l.english + ')' }));
   for (const [v, n] of DAYS) $('f-nth-day').append(el('option', { value: v, text: `${n}曜日` }));
   wire();
   render();

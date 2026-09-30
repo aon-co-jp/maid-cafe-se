@@ -145,7 +145,15 @@ impl Player {
         let segs: Vec<Segment> = if o.voice == VoiceStyle::Maid { maid_cafe_core::SpeechText::intonate(raw) } else { raw };
         let base_rate = if o.voice == VoiceStyle::DeepMale { 0.92 } else { 1.0 };
         let items: Vec<(i32, String)> = segs.iter().map(|s| (sapi::rate_step(base_rate * s.rate as f64), s.text.clone())).collect();
-        let synthesized = sapi::synthesize(&items, voice_name)?;
+        // 声の元の指定(設定)は日本語の音声のものなので、日本語のときだけ使う。他の言語は、その言語の音声を自動で選ぶ
+        let voice_name = if o.lang == "ja" { voice_name } else { None };
+        let synthesized = sapi::synthesize(&items, voice_name, &o.lang).map_err(|e| {
+            if e.contains("no voice for") {
+                format!("Windowsに、その言語({})の音声が入っていません。「設定→時刻と言語→音声」で追加してください", o.lang)
+            } else {
+                e
+            }
+        })?;
         let mut parts: Vec<Vec<f32>> = Vec::new();
         let mut sr = 0;
         for (k, wav) in synthesized.wavs.iter().enumerate() {

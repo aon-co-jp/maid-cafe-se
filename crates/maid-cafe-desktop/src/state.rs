@@ -109,17 +109,18 @@ impl AppState {
 
     /// エディタの「テスト再生」用: 保存前の設定を、そのまま鳴らす1件の発火にする。
     pub fn test_occurrence(e: &AlarmEntry) -> Occurrence {
-        let text = if e.text.trim().is_empty() && e.phrases.is_empty() { "テストです".to_string() } else { e.text.clone() };
-        let base = SpeechText::alarm_base(e.kind, &text, &e.label, e.voice, &e.phrases);
+        let text = if e.text.trim().is_empty() && e.phrases.is_empty() { (if e.lang == "ja" { "テストです" } else { "Test" }).to_string() } else { e.text.clone() };
+        let base = SpeechText::alarm_base_in(e.kind, &text, &e.label, e.voice, &e.phrases, &e.lang);
         Occurrence {
             time: Local::now().naive_local(),
             key: "test".into(),
             title: "テスト".into(),
             sound_id: if e.kind == AlarmKind::Sound || e.speech_sound { Some(e.sound_id.clone()) } else { None },
-            speech: SpeechText::alarm_speech(e.kind, &text, &e.label, e.voice, &e.phrases),
+            speech: SpeechText::alarm_speech_in(e.kind, &text, &e.label, e.voice, &e.phrases, &e.lang),
             voice: e.voice,
             harmony: e.harmony,
-            segments: SpeechText::segments(base.as_deref(), &e.phrases),
+            segments: SpeechText::segments_in(base.as_deref(), &e.phrases, &e.lang),
+            lang: e.lang.clone(),
         }
     }
 

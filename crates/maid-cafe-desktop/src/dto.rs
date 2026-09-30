@@ -49,6 +49,9 @@ pub struct AlarmDto {
     /// 読み上げのとき、音も一緒に鳴らす(既定は声だけ)
     #[serde(default)]
     pub speech_sound: bool,
+    /// 読み上げの言語(`ja` `en` `zh` `ko` `it` `fr` `de` `ru` `fa` `ar`)
+    #[serde(default = "ja")]
+    pub lang: String,
     /// 何分前に予告するか(予告しないなら`null`)
     #[serde(default)]
     pub pre_notice_minutes: Option<u32>,
@@ -56,6 +59,10 @@ pub struct AlarmDto {
 
 fn yes() -> bool {
     true
+}
+
+fn ja() -> String {
+    "ja".into()
 }
 
 fn days_to_dto(d: &DaySet) -> Vec<String> {
@@ -117,6 +124,7 @@ impl AlarmDto {
             pre_phrases: e.pre_phrases.clone(),
             harmony: e.harmony,
             speech_sound: e.speech_sound,
+            lang: e.lang.clone(),
             pre_notice_minutes: e.schedule.pre_notice_minutes,
         }
     }
@@ -156,6 +164,10 @@ impl AlarmDto {
         e.pre_phrases = MaidPhrases::known(&self.pre_phrases);
         e.harmony = self.harmony;
         e.speech_sound = self.speech_sound;
+        if !maid_cafe_core::lang::is_known_lang(&self.lang) {
+            return Err(format!("言語が不正です: {}", self.lang));
+        }
+        e.lang = self.lang.clone();
         // 保存形式で往復できることを保証する
         codec::decode(&codec::encode(&e)).map_err(|err| format!("保存できない値が含まれています: {err}"))?;
         // 読み上げなのに、文章もセリフも名前も無いものは作れない
@@ -185,6 +197,7 @@ mod tests {
             pre_phrases: vec!["fight".into()],
             harmony: true,
             speech_sound: true,
+            lang: "en".into(),
             pre_notice_minutes: Some(30),
         }
     }

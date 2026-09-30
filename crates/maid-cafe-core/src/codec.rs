@@ -132,6 +132,9 @@ pub fn encode(e: &AlarmEntry) -> String {
     if e.speech_sound {
         fields.push(("ss", "1".into()));
     }
+    if e.lang != crate::lang::DEFAULT_LANG {
+        fields.push(("lang", e.lang.clone()));
+    }
     fields.iter().map(|(k, v)| format!("{k}={}", url_encode(v))).collect::<Vec<_>>().join("&")
 }
 
@@ -175,6 +178,7 @@ pub fn decode(line: &str) -> Result<AlarmEntry, String> {
         pre_phrases: decode_ids(m.get("pph").map(|s| s.as_str())),
         harmony: m.get("harm").map(|s| s.as_str()) == Some("1"),
         speech_sound: m.get("ss").map(|s| s.as_str()) == Some("1"),
+        lang: crate::lang::normalize(m.get("lang").map(|s| s.as_str()).unwrap_or("ja")).to_string(),
     })
 }
 

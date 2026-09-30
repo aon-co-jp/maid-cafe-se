@@ -62,6 +62,8 @@ pub struct AlarmEntry {
     pub harmony: bool,
     /// 読み上げのとき、音も一緒に鳴らす(声の下に音を流す)。既定はオフ=声だけ。`kind`が`Sound`のときは無関係。
     pub speech_sound: bool,
+    /// 読み上げの言語(`lang::LANGS`のコード。既定は`ja`)。セリフと定型文がこの言語になる。
+    pub lang: String,
 }
 
 impl AlarmEntry {
@@ -79,6 +81,7 @@ impl AlarmEntry {
             pre_phrases: Vec::new(),
             harmony: false,
             speech_sound: false,
+            lang: crate::lang::DEFAULT_LANG.into(),
         }
     }
 }
@@ -144,6 +147,8 @@ pub struct Occurrence {
     pub harmony: bool,
     /// 読み上げの区切り(文ごとの間・抑揚)。空なら`speech`を1文として読む。
     pub segments: Vec<Segment>,
+    /// 読み上げの言語(`lang::LANGS`のコード)。
+    pub lang: String,
 }
 
 /// メイドのセリフ1つ。`display`は画面表示、`spoken`はTTSが読み間違えにくい表記(長音・かな)。

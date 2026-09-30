@@ -14,6 +14,7 @@ import java.util.Locale
 import tokyo.runo.maidcafese.core.Occurrence
 import tokyo.runo.maidcafese.core.Segment
 import tokyo.runo.maidcafese.core.VoiceStyle
+import tokyo.runo.maidcafese.core.Langs
 import tokyo.runo.maidcafese.core.Native
 import tokyo.runo.maidcafese.core.audio.SourceGender
 
@@ -48,10 +49,7 @@ class SpeechPlayer(
                 val engine = tts
                 if (stopped || engine == null) return@post
                 if (status != TextToSpeech.SUCCESS) { onUnavailable("TTS初期化失敗"); return@post }
-                val r = engine.setLanguage(Locale.JAPAN)
-                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    onUnavailable("日本語音声データがありません"); return@post
-                }
+                // 言語はアラームごとに違うので、区切りの合成の前に、そのつど設定する(`next`)
                 engine.setAudioAttributes(alarmAttrs())
                 engine.setOnUtteranceProgressListener(listener)
                 next()
@@ -104,6 +102,11 @@ class SpeechPlayer(
         while (index < items.size && items[index].speech == null) index++
         if (index >= items.size) { onFinished(); return }
         val item = items[index]
+        val engine = tts ?: return
+        val r = engine.setLanguage(Langs.byCode(item.lang).locale)
+        if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
+            onUnavailable("その言語(${Langs.byCode(item.lang).name})の音声データがありません"); return
+        }
         segs = item.segments.ifEmpty { listOf(Segment(item.speech.orEmpty())) }
         parts = ArrayList()
         synth(0)
@@ -113,7 +116,7 @@ class SpeechPlayer(
         if (stopped) return
         val engine = tts ?: return
         val item = items[index]
-        val (_, baseRate) = Voices.prepare(engine, item.voice, Store.voiceName(ctx, item.voice), neutralPitch = true)
+        val (_, baseRate) = Voices.prepare(engine, item.voice, Store.voiceName(ctx, item.voice), neutralPitch = true, lang = item.lang)
         engine.setSpeechRate((baseRate * segs[k].rate).coerceIn(0.5f, 2.0f))
         val file = File(ctx.cacheDir, "tts_${index}_$k.wav")
         val res = engine.synthesizeToFile(segs[k].text, Bundle(), file, "syn${index}_$k")
@@ -194,7 +197,7 @@ class SpeechPlayer(
         Log.w(TAG, "fallback to direct speech: $reason")
         val engine = tts ?: return
         val item = items[i]
-        val (pitch, rate) = Voices.prepare(engine, item.voice, Store.voiceName(ctx, item.voice), neutralPitch = false)
+        val (pitch, rate) = Voices.prepare(engine, item.voice, Store.voiceName(ctx, item.voice), neutralPitch = false, lang = item.lang)
         engine.setPitch(pitch)
         engine.setSpeechRate(rate)
         engine.speak(item.speech.orEmpty(), TextToSpeech.QUEUE_FLUSH, null, "spk$i")
@@ -207,8 +210,11 @@ object Voices {
     private val MALE_HINTS = listOf("jac", "jad", "-m-")
 
     /** 端末にある日本語の音声(オフラインで使えるもののみ)。 */
-    fun japaneseVoices(tts: TextToSpeech?) =
-        runCatching { tts?.voices?.filter { it.locale.language == "ja" && !it.isNetworkConnectionRequired } }
+    fun japaneseVoices(tts: TextToSpeech?) = voicesFor(tts, "ja")
+
+    /** 端末にある、その言語(`ja` `en`など)の音声(オフラインで使えるもののみ)。 */
+    fun voicesFor(tts: TextToSpeech?, lang: String) =
+        runCatching { tts?.voices?.filter { it.locale.language == lang && !it.isNetworkConnectionRequired } }
             .getOrNull().orEmpty().sortedBy { it.name }
 
     fun genderOfName(name: String): SourceGender {
@@ -224,8 +230,10 @@ object Voices {
      * 声質に合うエンジン音声を選んで設定し、(直接読み上げ用ピッチ, 速度)を返す。DSP経路ではピッチを触らない。
      * ユーザーが音声を指定していて端末に存在すれば、それを最優先にする。
      */
-    fun prepare(tts: TextToSpeech, style: VoiceStyle, preferredName: String?, neutralPitch: Boolean): Pair<Float, Float> {
-        val ja = japaneseVoices(tts)
+    fun prepare(tts: TextToSpeech, style: VoiceStyle, preferredName: String?, neutralPitch: Boolean, lang: String = "ja"): Pair<Float, Float> {
+        // 声の元の指定(設定)は日本語の音声のものなので、日本語のときだけ使う
+        val ja = voicesFor(tts, lang)
+        val preferredName = if (lang == "ja") preferredName else null
         val want = if (style == VoiceStyle.MAID) SourceGender.FEMALE else SourceGender.MALE
         (ja.firstOrNull { it.name == preferredName }
             ?: ja.firstOrNull { genderOfName(it.name) == want }

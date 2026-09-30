@@ -21,6 +21,7 @@ fn occurrence(voice: VoiceStyle, harmony: bool) -> Occurrence {
         voice,
         harmony,
         segments: SpeechText::segments(Some(&base), &ids),
+        lang: "ja".into(),
     }
 }
 

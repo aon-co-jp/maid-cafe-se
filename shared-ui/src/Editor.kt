@@ -35,6 +35,7 @@ import java.time.LocalTime
 import java.util.UUID
 import tokyo.runo.maidcafese.core.AlarmEntry
 import tokyo.runo.maidcafese.core.AlarmKind
+import tokyo.runo.maidcafese.core.Langs
 import tokyo.runo.maidcafese.core.Recurrence
 import tokyo.runo.maidcafese.core.Schedule
 import tokyo.runo.maidcafese.core.SoundCatalog
@@ -116,6 +117,7 @@ fun EditorDialog(
     var prePhrases by remember { mutableStateOf(initial?.prePhrases ?: emptySet(), neverEqualPolicy()) }
     var harmony by remember { mutableStateOf(initial?.harmony ?: false) }
     var speechSound by remember { mutableStateOf(initial?.speechSound ?: false) }
+    var lang by remember { mutableStateOf(initial?.lang ?: Langs.DEFAULT) }
 
     val intervalNum = interval.toIntOrNull()
     val recurrence: Recurrence? = when (recKind) {
@@ -172,6 +174,8 @@ fun EditorDialog(
                 }
                 Text("声")
                 VoicePicker(voice) { voice = it }
+                Text("読み上げの言語(メイドのセリフ・定型文がこの言語になります。入力した文章は翻訳されません)")
+                Choice(Langs.all, Langs.byCode(lang), { it.name + " (" + it.english + ")" }) { lang = it.code }
                 Text("メイドのセリフ(時間になったら。複数選ぶと続けて喋る)")
                 PhrasePicker(phrases) { phrases = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -186,7 +190,7 @@ fun EditorDialog(
                     onTest(
                         AlarmEntry(
                             "test", label.ifBlank { "アラーム" }, Schedule(Recurrence.Daily, LocalTime.of(0, 0)),
-                            kind, soundId, text, voice, phrases = phrases, harmony = harmony, speechSound = speechSound,
+                            kind, soundId, text, voice, phrases = phrases, harmony = harmony, speechSound = speechSound, lang = lang,
                         ),
                     )
                 }) { Text("テスト再生") }
@@ -205,7 +209,7 @@ fun EditorDialog(
                         kind = kind, soundId = soundId, text = text, voice = voice,
                         enabled = initial?.enabled ?: true,
                         phrases = phrases, prePhrases = if (pre) prePhrases else emptySet(), harmony = harmony,
-                        speechSound = kind == AlarmKind.SPEECH && speechSound,
+                        speechSound = kind == AlarmKind.SPEECH && speechSound, lang = lang,
                     ),
                 )
             }) { Text("保存") }

@@ -16,6 +16,7 @@ pub mod audio {
 pub mod codec;
 pub mod days;
 pub mod holidays;
+pub mod lang;
 pub mod model;
 pub mod planner;
 pub mod recurrence;

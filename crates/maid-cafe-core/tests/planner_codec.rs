@@ -187,3 +187,49 @@ fn speech_alarm_is_voice_only_unless_sound_is_turned_on() {
     assert!(codec::decode(&codec::encode(&e)).unwrap().speech_sound);
     assert!(!codec::decode(&codec::encode(&plain(AlarmKind::Speech))).unwrap().speech_sound);
 }
+
+#[test]
+fn every_language_speaks_its_own_phrases_and_round_trips() {
+    let after = dt(2026, 9, 30, 0, 0);
+    for (code, _, _) in lang::LANGS {
+        let mut e = plain(AlarmKind::Speech);
+        e.lang = code.to_string();
+        e.text = "pills".into();
+        e.phrases = vec!["okaeri".into(), "fight".into()];
+        let occ = Planner::next(std::slice::from_ref(&e), &[], &CalendarSettings::default(), after, &NoHolidays);
+        let speech = occ[0].speech.clone().unwrap();
+        assert_eq!(code, occ[0].lang);
+        // 日本語は従来どおり、それ以外は日本語の文字(ひらがな・カタカナ)を含まない(=その言語のセリフ・定型文になっている)
+        let has_kana = speech.chars().any(|c| ('\u{3040}'..='\u{30ff}').contains(&c));
+        assert_eq!(code == "ja", has_kana, "{code}: {speech}");
+        assert!(speech.contains("pills"), "{code}: 入力した文章は翻訳されず、そのまま入る");
+        // 予告も同じ言語(日本語の文字を含まない)
+        let mut p = e.clone();
+        p.schedule.pre_notice_minutes = Some(30);
+        let pre = Planner::next(std::slice::from_ref(&p), &[], &CalendarSettings::default(), after, &NoHolidays).remove(0);
+        assert_eq!(code == "ja", pre.speech.unwrap().chars().any(|c| ('\u{3040}'..='\u{30ff}').contains(&c)), "{code} 予告");
+        // 保存形式: 日本語以外だけ`lang=`が付き、往復で保たれる
+        let line = codec::encode(&e);
+        assert_eq!(code != "ja", line.contains("&lang="), "{line}");
+        assert_eq!(code, codec::decode(&line).unwrap().lang);
+    }
+    // 未知の言語コードは日本語にする(壊れたデータで起動不能にしない)
+    let line = codec::encode(&plain(AlarmKind::Speech)) + "&lang=xx";
+    assert_eq!("ja", codec::decode(&line).unwrap().lang);
+}
+
+#[test]
+fn non_japanese_intonation_splits_on_latin_and_arabic_punctuation() {
+    let mut e = plain(AlarmKind::Speech);
+    e.lang = "ar".into();
+    e.text = "دواء".into();
+    let occ = Planner::next(std::slice::from_ref(&e), &[], &CalendarSettings::default(), dt(2026, 9, 30, 0, 0), &NoHolidays).remove(0);
+    let out = SpeechText::intonate(occ.segments.clone());
+    assert!(out.len() >= occ.segments.len());
+    let mut e2 = plain(AlarmKind::Speech);
+    e2.lang = "en".into();
+    e2.text = "take the medicine".into();
+    let occ2 = Planner::next(std::slice::from_ref(&e2), &[], &CalendarSettings::default(), dt(2026, 9, 30, 0, 0), &NoHolidays).remove(0);
+    let out2 = SpeechText::intonate(occ2.segments);
+    assert!(out2.len() >= 2, "英語の「Master, it's time. …」も文節に割れる: {out2:?}");
+}

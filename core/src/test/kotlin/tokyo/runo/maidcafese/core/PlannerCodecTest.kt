@@ -119,4 +119,21 @@ class PlannerCodecTest {
         assertEquals(both, Codec.decode(Codec.encode(both)))
         assertEquals(voiceOnly, Codec.decode(Codec.encode(voiceOnly)))
     }
+
+    @Test fun everyLanguageSpeaksItsOwnPhrasesThroughJni() {
+        for (l in Langs.all) {
+            val e = entry(kind = AlarmKind.SPEECH).copy(lang = l.code, text = "pills", phrases = linkedSetOf("okaeri", "fight"))
+            val r = Planner.next(listOf(e), emptyList(), CalendarSettings(), dt(2026, 9, 30, 0))
+            assertEquals(l.code, r[0].lang)
+            val speech = r[0].speech!!
+            val hasKana = speech.any { it in '぀'..'ヿ' }
+            assertEquals(l.code == "ja", hasKana, "${l.code}: $speech")
+            assertTrue(speech.contains("pills"))
+            // 保存形式: 日本語以外だけ lang= が付き、往復で保たれる
+            val line = Codec.encode(e)
+            assertEquals(l.code != "ja", line.contains("&lang="))
+            assertEquals(e, Codec.decode(line))
+        }
+        assertEquals("ja", Codec.decode(Codec.encode(entry()) + "&lang=xx").lang)
+    }
 }

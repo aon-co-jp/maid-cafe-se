@@ -40,11 +40,11 @@ fn list_script() -> String {
 
 fn synth_script() -> String {
     format!(
-        "param([string]$InFile, [string]$OutDir, [string]$Voice)\n{HEADER}\
+        "param([string]$InFile, [string]$OutDir, [string]$Voice, [string]$Lang = 'ja')\n{HEADER}\
          $s = New-Object System.Speech.Synthesis.SpeechSynthesizer\n\
          if ($Voice) {{\n    $s.SelectVoice($Voice)\n}} else {{\n\
-         \x20   $ja = $s.GetInstalledVoices() | Where-Object {{ $_.Enabled -and $_.VoiceInfo.Culture.Name -eq 'ja-JP' }} | Select-Object -First 1\n\
-         \x20   if (-not $ja) {{ [Console]::Error.WriteLine('no ja-JP voice'); exit 2 }}\n\
+         \x20   $ja = $s.GetInstalledVoices() | Where-Object {{ $_.Enabled -and $_.VoiceInfo.Culture.Name -like ($Lang + '-*') }} | Select-Object -First 1\n\
+         \x20   if (-not $ja) {{ [Console]::Error.WriteLine('no voice for ' + $Lang); exit 2 }}\n\
          \x20   $s.SelectVoice($ja.VoiceInfo.Name)\n}}\n\
          Write-Output (\"VOICE`t\" + $s.Voice.Name + \"`t\" + $s.Voice.Culture.Name + \"`t\" + $s.Voice.Gender)\n\
          $lines = [IO.File]::ReadAllLines($InFile, [Text.Encoding]::UTF8)\n$i = 0\n\
@@ -159,7 +159,7 @@ pub fn list_voices() -> Vec<SapiVoice> {
 
 /// `items`((SAPIのRate, 文章)の並び)を、1回のPowerShell起動でWAVへ合成する。
 /// 声は`voice_name`、未指定なら最初の日本語音声。文章はファイル経由で渡す(コマンドラインに埋め込まない)。
-pub fn synthesize(items: &[(i32, String)], voice_name: Option<&str>) -> Result<Synthesized, String> {
+pub fn synthesize(items: &[(i32, String)], voice_name: Option<&str>, lang: &str) -> Result<Synthesized, String> {
     if items.is_empty() {
         return Err("読み上げる文章がありません".into());
     }
@@ -182,6 +182,8 @@ pub fn synthesize(items: &[(i32, String)], voice_name: Option<&str>) -> Result<S
                 dir.display().to_string(),
                 "-Voice".into(),
                 voice_name.unwrap_or("").to_string(),
+                "-Lang".into(),
+                lang.to_string(),
             ],
             Duration::from_secs(120),
         )?;
@@ -240,7 +242,7 @@ mod tests {
             eprintln!("SKIP: 日本語のWindows音声が無い");
             return;
         }
-        let out = synthesize(&[(0, "こんにちは".into()), (-2, "ご主人様、おかえりなさいませ".into())], None).expect("合成できる");
+        let out = synthesize(&[(0, "こんにちは".into()), (-2, "ご主人様、おかえりなさいませ".into())], None, "ja").expect("合成できる");
         assert_eq!(2, out.wavs.len());
         assert!(out.voice.is_japanese());
         for w in &out.wavs {
