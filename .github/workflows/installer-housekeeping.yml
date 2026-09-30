@@ -45,6 +45,26 @@ jobs:
           cp out/maid-cafe-se-installer.exe tree/windows/
           cp out/maid-cafe-se_*_android.apk tree/android/mobile/
           (cd tree && sha256sum windows/*.exe android/mobile/*.apk > SHA256SUMS.txt)
+          apk=$(basename tree/android/mobile/*.apk)
+          raw="https://github.com/${GITHUB_REPOSITORY}/raw/installer"
+          rel="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}"
+          # フォルダ画面でファイル名を押してもプレビューが開くだけなので、ダウンロードが始まるリンクを各フォルダのREADMEに載せる
+          {
+            echo "# Windows 用インストーラー ($tag)"
+            echo
+            echo "**[⬇ maid-cafe-se-installer.exe をダウンロード](${raw}/windows/maid-cafe-se-installer.exe)**"
+            echo
+            echo "(同じファイル: [Releases](${rel}/maid-cafe-se-installer.exe))"
+          } > tree/windows/README.md
+          {
+            echo "# Android スマホ用インストーラー ($tag)"
+            echo
+            echo "**[⬇ ${apk} をダウンロード](${raw}/android/mobile/${apk})**"
+            echo
+            echo "(同じファイル: [Releases](${rel}/${apk}))"
+            echo
+            echo "端末で開き、「提供元不明のアプリ」の許可を求められたら、そのブラウザ/ファイラーに許可してください。"
+          } > tree/android/mobile/README.md
           {
             echo "# installer ブランチ"
             echo
@@ -53,8 +73,8 @@ jobs:
             echo
             echo "| ファイル | 内容 |"
             echo "|---|---|"
-            echo "| [windows/maid-cafe-se-installer.exe](windows/) | Windows 10/11 |"
-            echo "| [android/mobile/](android/mobile/) | Android スマホ用 APK |"
+            echo "| [⬇ maid-cafe-se-installer.exe](${raw}/windows/maid-cafe-se-installer.exe) | Windows 10/11 |"
+            echo "| [⬇ ${apk}](${raw}/android/mobile/${apk}) | Android スマホ用 APK |"
             echo
             echo "SHA-256 は [SHA256SUMS.txt](SHA256SUMS.txt)。"
           } > tree/README.md
