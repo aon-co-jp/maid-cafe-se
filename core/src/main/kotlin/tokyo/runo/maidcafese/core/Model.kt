@@ -64,23 +64,35 @@ data class Occurrence(
     val speech: String?,
     val voice: VoiceStyle,
     val harmony: Boolean = false,
+    /** 読み上げの区切り(文ごとの間・抑揚)。空なら[speech]を1文として読む。 */
+    val segments: List<Segment> = emptyList(),
 )
+
+/**
+ * 読み上げの1区切り。[pitch]は声全体の音程への倍率、[rate]は話速への倍率、[gapAfterMs]は後ろの間(ミリ秒)。
+ */
+data class Segment(val text: String, val pitch: Double = 1.0, val rate: Float = 1.0f, val gapAfterMs: Int = 0)
 
 /** メイドのセリフ集。[display]は画面表示、[spoken]はTTSが読み間違えにくい表記(長音・かな)。 */
 object MaidPhrases {
-    data class Phrase(val id: String, val display: String, val spoken: String)
+    /** [pitch]/[rate]/[gapMs]はセリフごとの抑揚(音程倍率・話速倍率・後ろの間)。 */
+    data class Phrase(
+        val id: String, val display: String, val spoken: String,
+        val pitch: Double = 1.0, val rate: Float = 1.0f, val gapMs: Int = 300,
+    )
 
     val all = listOf(
-        Phrase("okaeri", "おかえりなさいませご主人様！", "おかえりなさいませ、ご主人様！"),
-        Phrase("oishiku", "おいしくな～れ萌え萌えキュ～ン", "おいしくなーれ、もえもえきゅーん！"),
+        Phrase("okaeri", "おかえりなさいませご主人様！", "おかえりなさいませ、ご主人様！", pitch = 1.0, rate = 0.95f, gapMs = 350),
+        Phrase("oishiku", "おいしくな～れ萌え萌えキュ～ン", "おいしくなーれ、もえもえきゅーん！", pitch = 1.06, rate = 0.85f, gapMs = 400),
         Phrase(
             "meh",
             "メッ！ダメなんだぞこら！いつまでもクヨクヨしてないでメイドちゃんと一緒にやる気を出して頑張って行きましょう！",
             "めっ！だめなんだぞ、こら！いつまでもくよくよしてないで、メイドちゃんと一緒に、やる気を出して、頑張って行きましょう！",
+            pitch = 1.03, rate = 1.0f, gapMs = 350,
         ),
-        Phrase("fight", "ファイト！ファイト！", "ファイト！ファイト！"),
-        Phrase("excellent", "エクセレント！", "エクセレント！"),
-        Phrase("perfect", "パーフェクト！", "パーフェクト！"),
+        Phrase("fight", "ファイト！ファイト！", "ファイト！ファイト！", pitch = 1.05, rate = 1.1f, gapMs = 250),
+        Phrase("excellent", "エクセレント！", "エクセレント！", pitch = 1.05, rate = 1.0f, gapMs = 300),
+        Phrase("perfect", "パーフェクト！", "パーフェクト！", pitch = 1.05, rate = 1.0f, gapMs = 300),
     )
 
     fun known(ids: Set<String>): Set<String> = ids.filterTo(LinkedHashSet()) { id -> all.any { it.id == id } }

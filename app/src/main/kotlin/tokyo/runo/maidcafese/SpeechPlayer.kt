@@ -12,6 +12,7 @@ import android.util.Log
 import java.io.File
 import java.util.Locale
 import tokyo.runo.maidcafese.core.Occurrence
+import tokyo.runo.maidcafese.core.Segment
 import tokyo.runo.maidcafese.core.VoiceStyle
 import tokyo.runo.maidcafese.core.audio.Pcm
 import tokyo.runo.maidcafese.core.audio.SourceGender
@@ -19,9 +20,9 @@ import tokyo.runo.maidcafese.core.audio.VoiceDsp
 import tokyo.runo.maidcafese.core.audio.Wav
 
 /**
- * 読み上げ再生。端末のTTSで文章をWAVに合成し(`synthesizeToFile`)、[VoiceDsp]でピッチ・声の太さを加工、
- * ハモりは同じ音声から3度違いの声を重ねて、AudioTrackで鳴らす。
- * 合成・解析・加工のどこかで失敗したら、従来の直接読み上げ(エンジンのピッチ/速度指定)に切り替える。
+ * 読み上げ再生。文(セリフ)ごとに端末のTTSでWAVへ合成し(`synthesizeToFile`)、[VoiceDsp]でピッチ・声の太さを
+ * 加工(セリフごとの抑揚つき)、無音トリム・音量統一のうえ、指定の「間」を挟んで連結して1本にして鳴らす。
+ * ハモりは同じ音声から3度違いの声を重ねる。合成・解析・加工のどこかで失敗したら、従来の直接読み上げに切り替える。
  */
 class SpeechPlayer(
     private val ctx: Context,
@@ -36,6 +37,9 @@ class SpeechPlayer(
     private var tts: TextToSpeech? = null
     private var items: List<Occurrence> = emptyList()
     private var index = 0
+    private var segs: List<Segment> = emptyList()
+    private var parts = ArrayList<FloatArray>()
+    private var sampleRate = 0
     private var track: AudioTrack? = null
     private var stopped = false
 
@@ -70,18 +74,23 @@ class SpeechPlayer(
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
 
+    /** 発話IDは `syn<アイテム>_<区切り>` / `spk<アイテム>`(フォールバック直接読み上げ)。 */
     private val listener = object : UtteranceProgressListener() {
         override fun onStart(id: String?) {}
         override fun onDone(id: String?) {
             when {
-                id?.startsWith("syn") == true -> Thread { processSynthesized(id.removePrefix("syn").toInt()) }.start()
+                id?.startsWith("syn") == true -> {
+                    val (i, k) = id.removePrefix("syn").split("_").map { it.toInt() }
+                    Thread { processSegment(i, k) }.start()
+                }
                 id?.startsWith("spk") == true -> main.post { advance() }
             }
         }
         @Deprecated("Deprecated in Java")
         override fun onError(id: String?) {
             when {
-                id?.startsWith("syn") == true -> main.post { fallback(id.removePrefix("syn").toInt(), "合成失敗") }
+                id?.startsWith("syn") == true ->
+                    main.post { fallback(id.removePrefix("syn").split("_")[0].toInt(), "合成失敗") }
                 id?.startsWith("spk") == true -> main.post { advance() }
             }
         }
@@ -94,22 +103,30 @@ class SpeechPlayer(
 
     private fun next() {
         if (stopped) return
-        val engine = tts ?: return
         while (index < items.size && items[index].speech == null) index++
         if (index >= items.size) { onFinished(); return }
         val item = items[index]
-        val (_, rate) = Voices.prepare(engine, item.voice, neutralPitch = true)
-        engine.setSpeechRate(rate)
-        val file = File(ctx.cacheDir, "tts_$index.wav")
-        val res = engine.synthesizeToFile(item.speech.orEmpty(), Bundle(), file, "syn$index")
+        segs = item.segments.ifEmpty { listOf(Segment(item.speech.orEmpty())) }
+        parts = ArrayList()
+        synth(0)
+    }
+
+    private fun synth(k: Int) {
+        if (stopped) return
+        val engine = tts ?: return
+        val item = items[index]
+        val (_, baseRate) = Voices.prepare(engine, item.voice, Store.voiceName(ctx, item.voice), neutralPitch = true)
+        engine.setSpeechRate((baseRate * segs[k].rate).coerceIn(0.5f, 2.0f))
+        val file = File(ctx.cacheDir, "tts_${index}_$k.wav")
+        val res = engine.synthesizeToFile(segs[k].text, Bundle(), file, "syn${index}_$k")
         if (res != TextToSpeech.SUCCESS) fallback(index, "synthesizeToFile失敗")
     }
 
-    /** バックグラウンドスレッド: WAV読み込み→加工→再生開始。 */
-    private fun processSynthesized(i: Int) {
-        if (stopped || i != index) return
+    /** バックグラウンドスレッド: 1区切りのWAV読み込み→加工。全区切りが揃ったら連結して再生。 */
+    private fun processSegment(i: Int, k: Int) {
+        if (stopped || i != index || k != parts.size) return
         val item = items[i]
-        val file = File(ctx.cacheDir, "tts_$i.wav")
+        val file = File(ctx.cacheDir, "tts_${i}_$k.wav")
         try {
             val pcm = Wav.parse(file.readBytes())
             file.delete()
@@ -117,15 +134,21 @@ class SpeechPlayer(
                 main.post { fallback(i, "WAV解析不可/空") }
                 return
             }
+            sampleRate = pcm.sampleRate
             val t0 = System.nanoTime()
-            val out = VoiceDsp.render(pcm, item.voice, Voices.genderOf(tts, item.voice), item.harmony)
-            Log.i(TAG, "DSP ${pcm.seconds}s -> ${out.seconds}s in ${(System.nanoTime() - t0) / 1_000_000}ms style=${item.voice} harmony=${item.harmony} sr=${pcm.sampleRate}")
-            if (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-                // デバッグビルドのみ: 変換前後のWAVを保存(実機でのピッチ検証用)
-                File(ctx.cacheDir, "debug_source.wav").writeBytes(Wav.toBytes(pcm))
-                File(ctx.cacheDir, "debug_render_${item.voice}_${item.harmony}.wav").writeBytes(Wav.toBytes(out))
+            val out = VoiceDsp.render(pcm, item.voice, Voices.genderOf(tts, item.voice), item.harmony, segs[k].pitch)
+            Log.i(TAG, "DSP seg ${k + 1}/${segs.size} ${pcm.seconds}s -> ${out.seconds}s in ${(System.nanoTime() - t0) / 1_000_000}ms style=${item.voice} harmony=${item.harmony} pitchMul=${segs[k].pitch} sr=${pcm.sampleRate}")
+            parts.add(out.samples)
+            if (k + 1 < segs.size) {
+                main.post { synth(k + 1) }
+            } else {
+                val joined = Pcm(VoiceDsp.join(parts, segs.map { it.gapAfterMs }, sampleRate), sampleRate)
+                if (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                    // デバッグビルドのみ: 最終WAVを保存(実機での検証用)
+                    File(ctx.cacheDir, "debug_final_${item.voice}_${item.harmony}.wav").writeBytes(Wav.toBytes(joined))
+                }
+                main.post { play(joined) }
             }
-            main.post { play(out) }
         } catch (e: Exception) {
             Log.e(TAG, "process failed", e)
             main.post { fallback(i, "加工失敗") }
@@ -168,7 +191,7 @@ class SpeechPlayer(
         Log.w(TAG, "fallback to direct speech: $reason")
         val engine = tts ?: return
         val item = items[i]
-        val (pitch, rate) = Voices.prepare(engine, item.voice, neutralPitch = false)
+        val (pitch, rate) = Voices.prepare(engine, item.voice, Store.voiceName(ctx, item.voice), neutralPitch = false)
         engine.setPitch(pitch)
         engine.setSpeechRate(rate)
         engine.speak(item.speech.orEmpty(), TextToSpeech.QUEUE_FLUSH, null, "spk$i")
@@ -180,10 +203,12 @@ object Voices {
     private val FEMALE_HINTS = listOf("female", "jab", "htm", "-f-")
     private val MALE_HINTS = listOf("jac", "jad", "-m-")
 
-    private fun jaVoices(tts: TextToSpeech?) =
-        runCatching { tts?.voices?.filter { it.locale.language == "ja" && !it.isNetworkConnectionRequired } }.getOrNull().orEmpty()
+    /** 端末にある日本語の音声(オフラインで使えるもののみ)。 */
+    fun japaneseVoices(tts: TextToSpeech?) =
+        runCatching { tts?.voices?.filter { it.locale.language == "ja" && !it.isNetworkConnectionRequired } }
+            .getOrNull().orEmpty().sortedBy { it.name }
 
-    private fun genderOfName(name: String): SourceGender {
+    fun genderOfName(name: String): SourceGender {
         val n = name.lowercase()
         return when {
             FEMALE_HINTS.any { n.contains(it) } -> SourceGender.FEMALE
@@ -192,11 +217,16 @@ object Voices {
         }
     }
 
-    /** 声質に合うエンジン音声を選んで設定し、(直接読み上げ用ピッチ, 速度)を返す。DSP経路ではピッチを触らない。 */
-    fun prepare(tts: TextToSpeech, style: VoiceStyle, neutralPitch: Boolean): Pair<Float, Float> {
-        val ja = jaVoices(tts)
+    /**
+     * 声質に合うエンジン音声を選んで設定し、(直接読み上げ用ピッチ, 速度)を返す。DSP経路ではピッチを触らない。
+     * ユーザーが音声を指定していて端末に存在すれば、それを最優先にする。
+     */
+    fun prepare(tts: TextToSpeech, style: VoiceStyle, preferredName: String?, neutralPitch: Boolean): Pair<Float, Float> {
+        val ja = japaneseVoices(tts)
         val want = if (style == VoiceStyle.MAID) SourceGender.FEMALE else SourceGender.MALE
-        (ja.firstOrNull { genderOfName(it.name) == want } ?: ja.firstOrNull { genderOfName(it.name) != SourceGender.UNKNOWN })
+        (ja.firstOrNull { it.name == preferredName }
+            ?: ja.firstOrNull { genderOfName(it.name) == want }
+            ?: ja.firstOrNull { genderOfName(it.name) != SourceGender.UNKNOWN })
             ?.let { tts.voice = it }
         tts.setPitch(1f)
         return when (style) {

@@ -33,8 +33,9 @@ object VoiceDsp {
     /** 平均律の長3度(4半音)。 */
     val MAJOR_THIRD = 2.0.pow(4.0 / 12.0)
 
-    fun render(pcm: Pcm, style: VoiceStyle, source: SourceGender, harmony: Boolean): Pcm {
-        val r = recipe(style, source)
+    /** [pitchMul]はセリフごとの抑揚(音程への追加倍率)。 */
+    fun render(pcm: Pcm, style: VoiceStyle, source: SourceGender, harmony: Boolean, pitchMul: Double = 1.0): Pcm {
+        val r = recipe(style, source).let { it.copy(pitchRatio = it.pitchRatio * pitchMul) }
         val sr = pcm.sampleRate
         var x = highPass(pcm.samples, sr, 70.0)
         fun voice(ratio: Double): FloatArray {
@@ -52,7 +53,7 @@ object VoiceDsp {
             for (i in b.indices) mixed[i + delay] += b[i] * 0.6f
             mixed
         } else a
-        return Pcm(fade(normalize(out, 0.9f), sr), sr)
+        return Pcm(fade(normalizeLoudness(trimSilence(out, sr)), sr), sr)
     }
 
     /** 長さを保ったまま音程(とフォルマント)を[ratio]倍にする。 */
@@ -154,6 +155,67 @@ object VoiceDsp {
             a * ((a + 1) + (a - 1) * c + sa), -2 * a * ((a - 1) + (a + 1) * c), a * ((a + 1) + (a - 1) * c - sa),
             (a + 1) - (a - 1) * c + sa, 2 * ((a - 1) - (a + 1) * c), (a + 1) - (a - 1) * c - sa,
         ).process(x)
+    }
+
+    /**
+     * 前後の無音を削る(TTSエンジンは前後に数百msの無音を付けることがあり、間の長さを制御できなくなるため)。
+     * 10ms窓のRMSが[thresholdDb]を超えた最初/最後の位置から[keepMs]だけ残す。全体が無音ならそのまま返す。
+     */
+    fun trimSilence(x: FloatArray, sr: Int, thresholdDb: Double = -50.0, keepMs: Int = 40): FloatArray {
+        val win = max(1, sr / 100)
+        val thr = 10.0.pow(thresholdDb / 20)
+        fun loud(from: Int): Boolean {
+            var e = 0.0
+            val to = min(x.size, from + win)
+            for (i in from until to) e += x[i].toDouble() * x[i]
+            return sqrt(e / (to - from)) > thr
+        }
+        var first = -1
+        var i = 0
+        while (i < x.size) { if (loud(i)) { first = i; break }; i += win }
+        if (first < 0) return x
+        var last = first
+        i = (x.size - 1) / win * win
+        while (i >= first) { if (loud(i)) { last = min(x.size, i + win); break }; i -= win }
+        val keep = sr * keepMs / 1000
+        return x.copyOfRange(max(0, first - keep), min(x.size, last + keep))
+    }
+
+    /**
+     * 声の大きさを揃える: RMSを[targetRms]に合わせ、[KNEE]を超える部分はtanhでなだらかに丸めて[CEILING]以内に収める
+     * (ピーク基準だと短い言葉と長い文で聴こえの大きさがばらつくため)。無音はそのまま。
+     */
+    fun normalizeLoudness(x: FloatArray, targetRms: Float = 0.18f): FloatArray {
+        var e = 0.0
+        for (v in x) e += v.toDouble() * v
+        val rms = sqrt(e / max(1, x.size)).toFloat()
+        if (rms < 1e-6f) return x
+        val g = targetRms / rms
+        return FloatArray(x.size) { softLimit(x[it] * g) }
+    }
+
+    private const val KNEE = 0.7f
+    private const val CEILING = 0.9f
+
+    private fun softLimit(v: Float): Float {
+        val a = abs(v)
+        if (a <= KNEE) return v
+        val over = kotlin.math.tanh(((a - KNEE) / (CEILING - KNEE)).toDouble()).toFloat()
+        val y = KNEE + (CEILING - KNEE) * over
+        return if (v < 0) -y else y
+    }
+
+    /** 区切りを、それぞれの後ろの間([gapsMs]ミリ秒の無音)を挟んで連結する。 */
+    fun join(parts: List<FloatArray>, gapsMs: List<Int>, sr: Int): FloatArray {
+        var total = 0
+        for (i in parts.indices) total += parts[i].size + (gapsMs.getOrElse(i) { 0 } * sr / 1000).coerceAtLeast(0)
+        val out = FloatArray(total)
+        var pos = 0
+        for (i in parts.indices) {
+            System.arraycopy(parts[i], 0, out, pos, parts[i].size)
+            pos += parts[i].size + (gapsMs.getOrElse(i) { 0 } * sr / 1000).coerceAtLeast(0)
+        }
+        return out
     }
 
     /** ピークを[peak]に揃える(無音はそのまま)。 */

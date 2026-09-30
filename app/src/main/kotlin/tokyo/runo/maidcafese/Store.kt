@@ -16,6 +16,13 @@ object Store {
         prefs(ctx).edit().putString("entries", Codec.encodeAll(list)).apply()
     }
 
+    /** ユーザーが指定した端末TTS音声名(声質ごと)。未指定はnull=自動選択。 */
+    fun voiceName(ctx: Context, style: VoiceStyle): String? = prefs(ctx).getString("voice_${style.name}", null)
+
+    fun saveVoiceName(ctx: Context, style: VoiceStyle, name: String?) {
+        prefs(ctx).edit().apply { if (name == null) remove("voice_${style.name}") else putString("voice_${style.name}", name) }.apply()
+    }
+
     fun calendar(ctx: Context): CalendarSettings {
         val p = prefs(ctx)
         return CalendarSettings(

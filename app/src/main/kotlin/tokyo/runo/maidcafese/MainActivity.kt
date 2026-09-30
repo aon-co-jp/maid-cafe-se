@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -119,6 +121,7 @@ fun App() {
                     },
                 )
             }
+            item { VoiceSettingsCard() }
             items(entries, key = { it.id }) { e ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
@@ -254,4 +257,59 @@ fun TestButton(entry: AlarmEntry) {
 @OptIn(ExperimentalMaterial3Api::class)
 fun EditorDialog(initial: AlarmEntry?, onDismiss: () -> Unit, onSave: (AlarmEntry) -> Unit) {
     editorDialogImpl(initial, onDismiss, onSave)
+}
+
+
+/** 声の元になる端末の日本語音声を、声質(メイド風/低い男性)ごとに選ぶ。未選択は自動選択。 */
+@Composable
+fun VoiceSettingsCard() {
+    val ctx = LocalContext.current
+    var names by remember { mutableStateOf<List<String>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+    var picks by remember { mutableStateOf(VoiceStyle.entries.associateWith { Store.voiceName(ctx, it) }) }
+    DisposableEffect(Unit) {
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(ctx.applicationContext) { status ->
+            if (status == TextToSpeech.SUCCESS) names = Voices.japaneseVoices(engine).map { it.name }
+            loaded = true
+        }
+        onDispose { engine.shutdown() }
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text("声の元になる端末の音声", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "読み上げの声はこの音声を加工して作ります。音声が複数ある端末では選ぶと変わります",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (!loaded) {
+                Text("音声を確認中…")
+            } else if (names.isEmpty()) {
+                Text("この端末にはオフラインの日本語音声が見つかりません(設定アプリのテキスト読み上げから日本語音声データを入れてください)")
+            } else {
+                VoiceStyle.entries.forEach { style ->
+                    Text(voiceName(style), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 6.dp))
+                    fun pick(n: String?) {
+                        Store.saveVoiceName(ctx, style, n)
+                        picks = picks + (style to n)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = picks[style] == null, onClick = { pick(null) })
+                        Text("自動")
+                    }
+                    names.forEach { n ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = picks[style] == n, onClick = { pick(n) })
+                            val g = when (Voices.genderOfName(n)) {
+                                tokyo.runo.maidcafese.core.audio.SourceGender.FEMALE -> "(女性の声)"
+                                tokyo.runo.maidcafese.core.audio.SourceGender.MALE -> "(男性の声)"
+                                else -> ""
+                            }
+                            Text("$n $g", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
