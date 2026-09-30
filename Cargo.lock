@@ -2119,7 +2119,7 @@ dependencies = [
 
 [[package]]
 name = "maid-cafe-desktop"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "bytes",
  "chrono",
@@ -2150,7 +2150,7 @@ dependencies = [
 
 [[package]]
 name = "maid-cafe-jni"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "chrono",
  "jni",
