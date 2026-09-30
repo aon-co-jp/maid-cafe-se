@@ -3,7 +3,7 @@
 **maid-cafe-se** — SEは secretary(秘書)の略。「maid-cafe による秘書サービス」。
 Androidスマホを、メイドカフェ風(または低い男性の声)の専属音声秘書にするオープンソースアプリ。
 
-> **状況(2026-09-30): v0.5.2 動作版(Androidエミュレータで実機能検証済み、実機端末での検証は未実施)。**
+> **状況(2026-09-30): v0.5.3 動作版(Androidエミュレータで実機能検証済み、実機端末での検証は未実施)。**
 > インストーラー(Windows)・署名つきAPK(Android)を[Releases](https://github.com/aon-co-jp/maid-cafe-se/releases/latest)で配布。入手・インストール方法は[`installer/`](installer/README.md)。
 
 ## 主な機能(計画)
