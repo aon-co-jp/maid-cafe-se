@@ -1,0 +1,12 @@
+[workspace]
+members = ["crates/maid-cafe-core", "tools/gen-sounds"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/aon-co-jp/maid-cafe-se"
+
+[workspace.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }

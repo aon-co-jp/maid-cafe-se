@@ -1,0 +1,10 @@
+[package]
+name = "maid-cafe-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "maid-cafe-se のコア(繰り返しルール・日本の祝日・次の発火の計算・保存形式・メイドのセリフ・音声の後処理)。OSにも画面にも依存しない純Rust。"
+
+[dependencies]
+chrono = { workspace = true }
