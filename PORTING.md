@@ -1,18 +1,17 @@
 # PORTING / 開発メモ (maid-cafe-se)
 
 ## 現状 (2026-09-30)
-- リポジトリ新設、README(要件・方針)のみ。コード無し。
+- v0.1.0: core(28テスト) + Androidアプリ(エミュレータ Pixel_9_Pro / Android 16系で発火・TTS・音・カレンダー予告を実機能検証)。
+- ビルド: `JAVA_HOME`にAndroid Studio同梱JBR、`local.properties`のsdk.dirはスラッシュ区切りで書く(バックスラッシュだと"Invalid file path")。
+- 検証tips: `adb shell run-as`で`shared_prefs/maidcafese.xml`にアラームを直接仕込める(Git Bashでは`MSYS_NO_PATHCONV=1`必須)。
 
 ## 次回再開ポイント(優先順)
-1. Androidプロジェクト雛形(Kotlin/Compose、minSdk要決定)
-2. 繰り返しルールエンジン(純Kotlin、JVMユニットテスト先行): 毎日/平日/土日祝/曜日/第N週X曜/N週ごと
-3. AlarmManager登録・再起動復元・音再生(CC0音源選定)
-4. TTS読み上げ(低い男性声/メイド口調変換)
-5. Googleカレンダー連動+30分前予告チェックボックス
-6. 実機(Android)でのDoze/省電力下の動作検証
+1. 実機端末での長時間検証(Doze・メーカー独自バッテリー制限・再起動後の復元)
+2. 予告分数を変更可能に(現在は30分固定、コア側は任意分対応済み)
+3. 男性/女性TTS音声の選択精度向上(端末の音声一覧から選ぶUI)
+4. 予定ごとの個別ON/OFF、終日予定の朝アナウンス
+5. リリース署名・Play配布の検討、アイコン
 
 ## 未決事項
-- カレンダー取得方式: Google Calendar API(OAuth)か`CalendarContract`か
-- 祝日データの取得元と更新方法
-- 「メイドカフェ風」の口調変換ルール(辞書ベース)の範囲
+- 「メイドカフェ風」の口調変換ルールの拡充範囲
 - ライセンス
