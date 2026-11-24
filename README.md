@@ -1,3 +1,5 @@
+> Latest translations / 翻訳の最新版: [0-LATEST-TRANSLATIONS.md](0-LATEST-TRANSLATIONS.md)
+
 # maid-cafe-se
 
 **maid-cafe-se** — SEは secretary(秘書)の略。「maid-cafe による秘書サービス」。
